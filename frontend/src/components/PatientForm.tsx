@@ -71,12 +71,19 @@ const PatientForm: React.FC<PatientFormProps> = ({
   };
 
   return (
-    <div className="bg-white p-6 rounded-lg shadow-lg max-w-2xl mx-auto">
-      <h2 className="text-2xl font-bold mb-6 text-gray-800">{title}</h2>
+    <div className="card-glow p-8 max-w-2xl mx-auto animate-slide-up">
+      <div className="flex items-center space-x-3 mb-8">
+        <div className="p-2 bg-healthix-green/20 rounded-lg">
+          <svg className="w-6 h-6 text-healthix-green" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+          </svg>
+        </div>
+        <h2 className="text-2xl font-bold text-white">{title}</h2>
+      </div>
       
       <form onSubmit={handleSubmit} className="space-y-6">
-        <div>
-          <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
+        <div className="space-y-2">
+          <label htmlFor="name" className="block text-sm font-medium text-white mb-2">
             Patient Name *
           </label>
           <input
@@ -85,16 +92,21 @@ const PatientForm: React.FC<PatientFormProps> = ({
             name="name"
             value={formData.name}
             onChange={handleChange}
-            className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 ${
-              errors.name ? 'border-red-500' : 'border-gray-300'
-            }`}
+            className={`input-modern ${errors.name ? 'error-glow' : ''}`}
             placeholder="Enter patient's full name"
           />
-          {errors.name && <p className="mt-1 text-sm text-red-600">{errors.name}</p>}
+          {errors.name && (
+            <p className="mt-2 text-sm text-red-400 animate-fade-in flex items-center">
+              <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              {errors.name}
+            </p>
+          )}
         </div>
 
-        <div>
-          <label htmlFor="date_of_birth" className="block text-sm font-medium text-gray-700 mb-2">
+        <div className="space-y-2">
+          <label htmlFor="date_of_birth" className="block text-sm font-medium text-white mb-2">
             Date of Birth *
           </label>
           <input
@@ -103,16 +115,21 @@ const PatientForm: React.FC<PatientFormProps> = ({
             name="date_of_birth"
             value={formData.date_of_birth}
             onChange={handleChange}
-            className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 ${
-              errors.date_of_birth ? 'border-red-500' : 'border-gray-300'
-            }`}
+            className={`input-modern ${errors.date_of_birth ? 'error-glow' : ''}`}
           />
-          {errors.date_of_birth && <p className="mt-1 text-sm text-red-600">{errors.date_of_birth}</p>}
+          {errors.date_of_birth && (
+            <p className="mt-2 text-sm text-red-400 animate-fade-in flex items-center">
+              <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              {errors.date_of_birth}
+            </p>
+          )}
         </div>
 
-        <div>
-          <label htmlFor="diagnosis" className="block text-sm font-medium text-gray-700 mb-2">
-            Diagnosis
+        <div className="space-y-2">
+          <label htmlFor="diagnosis" className="block text-sm font-medium text-white mb-2">
+            Medical Condition
           </label>
           <textarea
             id="diagnosis"
@@ -120,14 +137,14 @@ const PatientForm: React.FC<PatientFormProps> = ({
             value={formData.diagnosis}
             onChange={handleChange}
             rows={3}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+            className="textarea-modern"
             placeholder="Enter medical diagnosis or condition"
           />
         </div>
 
-        <div>
-          <label htmlFor="prescription" className="block text-sm font-medium text-gray-700 mb-2">
-            Prescription
+        <div className="space-y-2">
+          <label htmlFor="prescription" className="block text-sm font-medium text-white mb-2">
+            Notes
           </label>
           <textarea
             id="prescription"
@@ -135,28 +152,43 @@ const PatientForm: React.FC<PatientFormProps> = ({
             value={formData.prescription}
             onChange={handleChange}
             rows={4}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+            className="textarea-modern"
             placeholder="Enter prescribed medications and instructions"
           />
         </div>
 
-        <div className="flex justify-end space-x-4">
+        <div className="flex justify-end space-x-4 pt-6 border-t border-healthix-dark-lighter">
           {onCancel && (
             <button
               type="button"
               onClick={onCancel}
-              className="px-6 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              className="btn-secondary"
               disabled={isSubmitting}
             >
+              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
               Cancel
             </button>
           )}
           <button
             type="submit"
             disabled={isSubmitting}
-            className="px-6 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="btn-primary"
           >
-            {isSubmitting ? 'Saving...' : 'Save Patient'}
+            {isSubmitting ? (
+              <>
+                <div className="loading-spinner h-4 w-4 mr-2"></div>
+                Validating...
+              </>
+            ) : (
+              <>
+                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                Validate
+              </>
+            )}
           </button>
         </div>
       </form>
