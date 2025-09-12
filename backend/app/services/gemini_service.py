@@ -22,7 +22,12 @@ class GeminiService:
         """Extract patient data from uploaded document"""
         try:
             prompt = """
-            You are a medical document processor. Extract patient information from the provided document.
+            You are a medical document processor. Extract patient information from the provided document(s).
+            
+            The uploaded documents may include:
+            1. Patient ID documents (Aadhaar card, PAN card, or other government IDs)
+            2. Medical prescriptions
+            3. Medical reports or diagnoses
             
             Please extract the following information and return it in JSON format:
             {
@@ -34,12 +39,42 @@ class GeminiService:
                 "raw_text": "All extracted text from the document"
             }
             
-            Rules:
-            1. If information is not clearly available, use null for that field
-            2. For date_of_birth, convert any date format to YYYY-MM-DD
-            3. Be as accurate as possible with medical terminology
-            4. Confidence score should reflect how certain you are about the extraction (0-1)
-            5. Include all visible text in raw_text field
+            IMPORTANT EXTRACTION RULES:
+            1. **Patient Identity**: If you see an Aadhaar card, PAN card, or any government ID document, extract the person's name and date of birth from these documents as they are the most reliable source for patient identity.
+            
+            2. **Name Extraction**: 
+               - Prioritize name from ID documents (Aadhaar, PAN card)
+               - If no ID document, extract from prescription header or patient details section
+               - Use the full name as it appears on the official document
+            
+            3. **Date of Birth**: 
+               - Extract DOB from ID documents first (Aadhaar cards show DOB, PAN cards show it in some cases)
+               - If not available on ID, look for age or DOB mentioned in medical documents
+               - Convert any date format to YYYY-MM-DD format
+               - If only age is mentioned, estimate DOB based on current date
+            
+            4. **Diagnosis Intelligence**:
+               - If diagnosis is explicitly mentioned in the document, extract it directly
+               - If diagnosis is NOT clearly stated but prescription is available, analyze the prescribed medications to reverse-engineer the likely diagnosis
+               - Use your medical knowledge to infer conditions from medication patterns:
+                 * Antibiotics (Amoxicillin, Azithromycin) → Bacterial infections
+                 * Bronchodilators (Salbutamol, Levolin) → Respiratory conditions like Asthma/COPD
+                 * Antacids (Pantoprazole, Omeprazole) → Gastric issues/GERD
+                 * Antidiabetic drugs (Metformin, Insulin) → Diabetes
+                 * Antihypertensives (Amlodipine, Enalapril) → Hypertension
+                 * Pain medications + anti-inflammatory → Musculoskeletal conditions
+               - Provide the most likely diagnosis based on medication analysis
+            
+            5. **Prescription Processing**:
+               - Extract all medications with dosage, frequency, and duration
+               - Include both generic and brand names if available
+               - Note any special instructions or precautions
+            
+            6. **Quality Assurance**:
+               - If information is not clearly available, use null for that field
+               - Confidence score should reflect how certain you are about the extraction (0-1)
+               - Include all visible text in raw_text field for reference
+               - Higher confidence for information extracted from official ID documents
             
             Document to process:
             """
