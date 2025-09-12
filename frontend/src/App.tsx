@@ -40,7 +40,7 @@ const App: React.FC = () => {
       } else {
         setExtractedData(result);
       }
-      setShowForm(true);
+      // Don't show form immediately - wait for user to click "Complete Upload"
     } catch (error) {
       console.error('Error uploading document:', error);
       alert('Failed to process document. Please try again.');
@@ -50,7 +50,16 @@ const App: React.FC = () => {
   };
 
   const handleUploadComplete = () => {
-    setShowForm(true);
+    console.log('Upload complete clicked, extractedData:', extractedData);
+    console.log('Uploaded documents:', uploadedDocuments.length);
+    
+    if (extractedData) {
+      console.log('Showing form with extracted data:', extractedData.extracted_data);
+      setShowForm(true);
+    } else {
+      console.log('No extracted data, showing empty form for manual entry');
+      setShowForm(true);
+    }
   };
 
   const handlePatientSubmit = async (patientData: PatientCreate | PatientUpdate) => {
@@ -119,6 +128,21 @@ const App: React.FC = () => {
               onUploadComplete={handleUploadComplete}
               isUploading={isUploading} 
             />
+            
+            {/* Processing Status */}
+            {uploadedDocuments.length > 0 && !showForm && (
+              <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-md">
+                <div className="flex items-center">
+                  <svg className="h-5 w-5 text-blue-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  <p className="text-sm text-blue-800">
+                    <strong>{uploadedDocuments.length} document{uploadedDocuments.length !== 1 ? 's' : ''} uploaded and processed.</strong>
+                    {extractedData ? ' Patient information extracted successfully!' : ' Click "Complete Upload" to continue.'}
+                  </p>
+                </div>
+              </div>
+            )}
             
             {/* Patient Form - Always visible below upload area */}
             {(showForm || editingPatient) && (
