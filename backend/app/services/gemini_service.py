@@ -29,8 +29,8 @@ class GeminiService:
         if not api_key:
             raise ValueError("GEMINI_API_KEY must be set in environment variables")
         
-        genai.configure(api_key=api_key)
-        self.model = genai.GenerativeModel('gemini-2.0-flash-exp')
+        genai.configure(api_key=api_key)  # type: ignore[attr-defined]
+        self.model = genai.GenerativeModel('gemini-2.0-flash-exp')  # type: ignore[attr-defined]
         # Use the google.genai client for file uploads (like in main.py)
         self.client = google_client.Client(api_key=api_key)
     
@@ -95,6 +95,11 @@ class GeminiService:
                - Include all visible text in raw_text field for reference
                - Higher confidence for information extracted from official ID documents
             
+            STRICT OUTPUT REQUIREMENTS:
+            - Respond with a single JSON object only.
+            - Do not include markdown or code fences.
+            - Use standard ASCII quotes for JSON keys and string values.
+            
             Document to process:
             """
             
@@ -123,7 +128,7 @@ class GeminiService:
                     )
                     
                     # Generate content using uploaded file with proper message structure
-                    response = self.client.models.generate_content(
+                    resp_obj = self.client.models.generate_content(
                         model="gemini-2.0-flash-exp",
                         contents=[
                             {"role": "user", "parts": [
@@ -132,7 +137,7 @@ class GeminiService:
                             ]}
                         ]
                     )
-                    response = response.text
+                    response = resp_obj.text or ""
                     
                 finally:
                     # Clean up temp file
@@ -213,7 +218,7 @@ class GeminiService:
                     # Try to guess from provided file_type
                     mime_type = file_type if file_type != 'application/octet-stream' else 'application/pdf'
                 
-                print(f"� File: {file_name}, MIME type: {mime_type}")
+                print(f" File: {file_name}, MIME type: {mime_type}")
                 
                 # Save file temporarily
                 file_path = os.path.join(temp_dir, file_name)
@@ -293,18 +298,23 @@ class GeminiService:
                - Provide the most likely diagnosis based on medication analysis
             
             6. **Prescription Processing**:
-               - Extract all medications with dosage, frequency, and duration from all documents
-               - Include both generic and brand names if available
-               - Note any special instructions or precautions
-               - Combine prescriptions from multiple documents if present
+            - Extract all medications with dosage, frequency, and duration from all documents
+            - Include both generic and brand names if available
+            - Note any special instructions or precautions
+            - Combine prescriptions from multiple documents if present
             
             7. **Quality Assurance**:
-               - If information is not clearly available, use null for that field
-               - Confidence score should reflect how certain you are about the extraction (0-1)
-               - Include all visible text from all documents in raw_text field for reference
-               - Higher confidence for information extracted from official ID documents
+            - If information is not clearly available, use null for that field
+            - Confidence score should reflect how certain you are about the extraction (0-1)
+            - Include all visible text from all documents in raw_text field for reference
+            - Higher confidence for information extracted from official ID documents
             
             Process ALL the provided documents comprehensively and extract information from each one.
+            
+            STRICT OUTPUT REQUIREMENTS:
+            - Respond with a single JSON object only.
+            - Do not include markdown or code fences.
+            - Use standard ASCII quotes for JSON keys and string values.
             """
             
             print("=== 🤖 SENDING MULTIPLE FILES TO LLM ===")
@@ -322,14 +332,14 @@ class GeminiService:
                 })
             user_parts.append({"text": prompt})
             
-            response = self.client.models.generate_content(
+            resp_obj = self.client.models.generate_content(
                 model="gemini-2.0-flash-exp",
                 contents=[
                     {"role": "user", "parts": user_parts}
                 ]
             )
             
-            response_text = response.text
+            response_text = resp_obj.text or ""
             print("=== 🤖 FULL LLM RESPONSE ===")
             print(response_text)
             print("=== 🏁 END LLM RESPONSE ===")
@@ -374,10 +384,10 @@ class GeminiService:
             logger.info(f"Image size: {image.size}")
             logger.info("=== END PROMPT ===")
             
-            response = self.model.generate_content([prompt, image])
+            response = self.model.generate_content([prompt, image])  # type: ignore[attr-defined]
             print(f"🤖 Raw Gemini response from image: {response.text}")
             logger.info(f"Raw Gemini response from image: {response.text}")
-            return response.text
+            return response.text or ""
         except Exception as e:
             print(f"❌ Error generating content from image: {str(e)}")
             logger.error(f"Error generating content from image: {str(e)}")
@@ -393,10 +403,10 @@ class GeminiService:
             logger.info(f"Full prompt: {prompt}")
             logger.info("=== END PROMPT ===")
             
-            response = self.model.generate_content(prompt)
+            response = self.model.generate_content(prompt)  # type: ignore[attr-defined]
             print(f"🤖 Raw Gemini response from text: {response.text}")
             logger.info(f"Raw Gemini response from text: {response.text}")
-            return response.text
+            return response.text or ""
         except Exception as e:
             print(f"❌ Error generating content from text: {str(e)}")
             logger.error(f"Error generating content from text: {str(e)}")
@@ -426,9 +436,30 @@ class GeminiService:
             text = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f]", "", text)
             return text.strip()
 
+        def _normalize(parsed: Dict[str, Any]) -> Dict[str, Any]:
+            # Map common key typos
+            if 'datee_of_birth' in parsed and 'date_of_birth' not in parsed:
+                parsed['date_of_birth'] = parsed.pop('datee_of_birth')
+            # Ensure keys exist and coerce to string when applicable
+            name = parsed.get('name')
+            dob = parsed.get('date_of_birth')
+            diagnosis = parsed.get('diagnosis')
+            prescription = parsed.get('prescription')
+            conf = parsed.get('confidence_score', 0.5)
+            raw_text = parsed.get('raw_text', '')
+            return {
+                'name': None if name is None else str(name),
+                'date_of_birth': None if dob is None else str(dob),
+                'diagnosis': None if diagnosis is None else str(diagnosis),
+                'prescription': None if prescription is None else str(prescription),
+                'confidence_score': float(conf) if isinstance(conf, (int, float, str)) and str(conf).replace('.', '', 1).isdigit() else 0.5,
+                'raw_text': str(raw_text)
+            }
+
         # Try multiple parsing strategies
         candidates: List[str] = []
-        candidates.append(_clean_json_text(response))
+        cleaned = _clean_json_text(response)
+        candidates.append(cleaned)
         # If the response begins with a fence, also try raw without cleaning braces
         if response.strip().startswith("```"):
             candidates.append(response.strip().strip("`"))
@@ -441,9 +472,33 @@ class GeminiService:
         for candidate in candidates:
             try:
                 parsed = json.loads(candidate)
-                return parsed
+                return _normalize(parsed)
             except Exception:
                 continue
+
+        # Regex-based fallback extraction from the cleaned text
+        try:
+            text = cleaned
+            def rx(key: str) -> Optional[str]:
+                m = re.search(rf'"{key}"\s*:\s*"([\s\S]*?)"\s*(,|\}})', text)
+                return m.group(1) if m else None
+            name = rx('name')
+            dob = rx('date_of_birth') or rx('datee_of_birth')
+            diagnosis = rx('diagnosis')
+            prescription = rx('prescription')
+            conf_match = re.search(r'"confidence_score"\s*:\s*([0-9\.]+)', text)
+            confidence = float(conf_match.group(1)) if conf_match else 0.5
+            raw_block = rx('raw_text')
+            return {
+                'name': None if name is None else str(name),
+                'date_of_birth': None if dob is None else str(dob),
+                'diagnosis': None if diagnosis is None else str(diagnosis),
+                'prescription': None if prescription is None else str(prescription),
+                'confidence_score': confidence,
+                'raw_text': str(raw_block) if raw_block is not None else response
+            }
+        except Exception:
+            pass
 
         logger.warning("Could not parse JSON from Gemini response")
         return {
@@ -454,7 +509,7 @@ class GeminiService:
             "confidence_score": 0.3,
             "raw_text": response
         }
-    
+
     async def generate_chat_response(self, query: str, context: str) -> str:
         """Generate chat response based on query and context"""
         prompt = f"""
@@ -470,8 +525,8 @@ class GeminiService:
         """
         
         try:
-            response = self.model.generate_content(prompt)
-            return response.text
+            response = self.model.generate_content(prompt)  # type: ignore[attr-defined]
+            return (response.text or "")
         except Exception as e:
             logger.error(f"Error generating chat response: {str(e)}")
             return "I'm sorry, I encountered an error while processing your request."
