@@ -7,6 +7,7 @@ from pathlib import Path
 
 from app.models.patient import DocumentProcessingResult, PatientBase
 from app.services.gemini_service import GeminiService
+from app.models.patient import DocumentProcessingResultMulti
 
 router = APIRouter()
 
@@ -86,3 +87,61 @@ async def get_supported_file_types():
         ],
         "max_file_size_bytes": int(os.getenv("MAX_FILE_SIZE", 10485760))
     }
+
+@router.post("/upload-multiple", response_model=DocumentProcessingResultMulti)
+async def upload_multiple_documents(
+    files: list[UploadFile] = File(...),
+    gemini_service: GeminiService = Depends(get_gemini_service)
+):
+    """Upload and process multiple patient documents in a single LLM context."""
+    if not files or len(files) == 0:
+        raise HTTPException(status_code=400, detail="No files provided")
+
+    allowed_types = ['image/jpeg', 'image/png', 'image/jpg', 'text/plain', 'application/pdf']
+    max_size = int(os.getenv("MAX_FILE_SIZE", 10485760))
+
+    # Validate all files and prepare payloads
+    files_data = []
+    total_bytes = 0
+    for f in files:
+        if f.content_type not in allowed_types:
+            raise HTTPException(
+                status_code=400,
+                detail=f"File type {f.content_type} not supported. Allowed types: {', '.join(allowed_types)}"
+            )
+        content = await f.read()
+        total_bytes += len(content)
+        if len(content) > max_size:
+            raise HTTPException(
+                status_code=400,
+                detail=f"File {f.filename} exceeds maximum size of {max_size} bytes"
+            )
+        files_data.append({
+            "content": content,
+            "name": f.filename or "uploaded_file",
+            "type": f.content_type
+        })
+
+    try:
+        # Single LLM call with all files via Gemini file upload API
+        result = await gemini_service.extract_patient_data_from_multiple_files(files_data)
+
+        # Map to a response shape similar to single-file result plus metadata
+        return {
+            "extracted_data": {
+                "name": result.get("name") or "Unknown",
+                "date_of_birth": result.get("date_of_birth") or "1900-01-01",
+                "diagnosis": result.get("diagnosis"),
+                "prescription": result.get("prescription")
+            },
+            "confidence_score": result.get("confidence_score", 0.0),
+            "raw_text": result.get("raw_text", ""),
+            "documents_processed": result.get("documents_processed", len(files)),
+            "processing_method": result.get("processing_method"),
+            "document_types": result.get("document_types"),
+            "medical_history": result.get("medical_history"),
+            "doctor_name": result.get("doctor_name"),
+            "hospital_clinic": result.get("hospital_clinic")
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error processing documents: {str(e)}")

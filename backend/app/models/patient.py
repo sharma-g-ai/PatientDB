@@ -37,3 +37,14 @@ class ChatResponse(BaseModel):
     response: str
     sources: List[str] = []
     patient_ids: List[str] = []
+
+class DocumentProcessingResultMulti(BaseModel):
+    extracted_data: PatientBase
+    confidence_score: float = Field(..., ge=0, le=1)
+    raw_text: str
+    documents_processed: int = Field(..., ge=1)
+    processing_method: Optional[str] = None
+    document_types: Optional[List[str]] = None
+    medical_history: Optional[str] = None
+    doctor_name: Optional[str] = None
+    hospital_clinic: Optional[str] = None
