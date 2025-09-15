@@ -24,6 +24,17 @@ export const documentsApi = {
     return response.data;
   },
 
+  uploadDocuments: async (files: File[]) => {
+    const formData = new FormData();
+    files.forEach((f) => formData.append('files', f));
+    const response = await api.post('/api/documents/upload-multiple', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  },
+
   getSupportedTypes: async () => {
     const response = await api.get('/api/documents/supported-types');
     return response.data;

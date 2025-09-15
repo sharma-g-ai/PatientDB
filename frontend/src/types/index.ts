@@ -28,6 +28,15 @@ export interface DocumentProcessingResult {
   raw_text: string;
 }
 
+export interface DocumentProcessingResultMulti extends DocumentProcessingResult {
+  documents_processed: number;
+  processing_method?: string;
+  document_types?: string[];
+  medical_history?: string;
+  doctor_name?: string;
+  hospital_clinic?: string;
+}
+
 export interface ChatMessage {
   message: string;
 }

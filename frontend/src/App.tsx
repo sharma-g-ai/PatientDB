@@ -18,47 +18,26 @@ const App: React.FC = () => {
   const [uploadedDocuments, setUploadedDocuments] = useState<File[]>([]);
 
   const handleFileUpload = async (file: File) => {
-    setIsUploading(true);
+    // Stage files only; defer processing until Complete Upload
     setUploadedDocuments(prev => [...prev, file]);
-    try {
-      const result = await documentsApi.uploadDocument(file);
-      // Merge the new extracted data with existing data
-      if (extractedData) {
-        // Combine prescription information if both exist
-        const combinedPrescription = [
-          extractedData.extracted_data.prescription,
-          result.extracted_data.prescription
-        ].filter(Boolean).join(', ');
-        
-        setExtractedData({
-          ...result,
-          extracted_data: {
-            ...result.extracted_data,
-            prescription: combinedPrescription || result.extracted_data.prescription
-          }
-        });
-      } else {
-        setExtractedData(result);
-      }
-      // Don't show form immediately - wait for user to click "Complete Upload"
-    } catch (error) {
-      console.error('Error uploading document:', error);
-      alert('Failed to process document. Please try again.');
-    } finally {
-      setIsUploading(false);
-    }
   };
 
-  const handleUploadComplete = () => {
-    console.log('Upload complete clicked, extractedData:', extractedData);
-    console.log('Uploaded documents:', uploadedDocuments.length);
-    
-    if (extractedData) {
-      console.log('Showing form with extracted data:', extractedData.extracted_data);
+  const handleUploadComplete = async () => {
+    if (uploadedDocuments.length === 0) {
       setShowForm(true);
-    } else {
-      console.log('No extracted data, showing empty form for manual entry');
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      const result = await documentsApi.uploadDocuments(uploadedDocuments);
+      setExtractedData(result);
       setShowForm(true);
+    } catch (error) {
+      console.error('Error processing documents:', error);
+      alert('Failed to process documents. Please try again.');
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -137,8 +116,8 @@ const App: React.FC = () => {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                   </svg>
                   <p className="text-sm text-blue-800">
-                    <strong>{uploadedDocuments.length} document{uploadedDocuments.length !== 1 ? 's' : ''} uploaded and processed.</strong>
-                    {extractedData ? ' Patient information extracted successfully!' : ' Click "Complete Upload" to continue.'}
+                    <strong>{uploadedDocuments.length} document{uploadedDocuments.length !== 1 ? 's' : ''} selected.</strong>
+                    {isUploading ? ' Processing...' : ' Click "Complete Upload & Process Documents" to continue.'}
                   </p>
                 </div>
               </div>
