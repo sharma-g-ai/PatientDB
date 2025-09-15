@@ -19,7 +19,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ className = '' }) => {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
-      text: 'Hello! I\'m your patient data assistant. You can ask me questions about your patient records, such as "Show me patients with diabetes" or "What medications has John Smith been prescribed?"',
+      text: 'Welcome to Healthix! 👋 I\'m your intelligent patient data assistant. You can ask me questions about your patient records, such as "Show me patients with diabetes" or "What medications has John Smith been prescribed?"',
       isUser: false,
       timestamp: new Date(),
     }
@@ -87,39 +87,51 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ className = '' }) => {
   };
 
   return (
-    <div className={`bg-white rounded-lg shadow-lg ${className}`}>
-      <div className="border-b border-gray-200 p-4">
-        <h2 className="text-xl font-semibold text-gray-800">Patient Data Chat</h2>
-        <p className="text-sm text-gray-600">Ask questions about your patient records</p>
+    <div className={`card-glow animate-fade-in ${className}`}>
+      <div className="border-b border-healthix-dark-lighter p-6">
+        <div className="flex items-center space-x-3 mb-2">
+          <div className="p-2 bg-healthix-green/20 rounded-lg">
+            <svg className="w-6 h-6 text-healthix-green" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+            </svg>
+          </div>
+          <h2 className="text-xl font-semibold text-white">Patient Data Chat</h2>
+        </div>
+        <p className="text-healthix-gray-light">Ask questions about your patient records</p>
       </div>
 
-      <div className="h-96 overflow-y-auto p-4 space-y-4">
+      <div className="h-96 overflow-y-auto p-6 space-y-4 bg-healthix-dark/30">
         {messages.map((message) => (
           <div
             key={message.id}
-            className={`flex ${message.isUser ? 'justify-end' : 'justify-start'}`}
+            className={`flex ${message.isUser ? 'justify-end' : 'justify-start'} animate-slide-up`}
           >
             <div
-              className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
+              className={`max-w-xs lg:max-w-md px-4 py-3 rounded-xl shadow-lg transition-all duration-300 hover:scale-105 ${
                 message.isUser
-                  ? 'bg-primary-600 text-white'
-                  : 'bg-gray-100 text-gray-800'
+                  ? 'bg-gradient-to-r from-healthix-green to-healthix-green-light text-white shadow-glow'
+                  : 'bg-healthix-dark-light border border-healthix-dark-lighter text-white'
               }`}
             >
-              <p className="text-sm">{message.text}</p>
+              <p className="text-sm leading-relaxed">{message.text}</p>
               
               {message.sources && message.sources.length > 0 && (
-                <div className="mt-2 pt-2 border-t border-gray-300">
-                  <p className="text-xs text-gray-600">Sources:</p>
-                  <ul className="text-xs text-gray-600 mt-1">
+                <div className="mt-3 pt-3 border-t border-healthix-dark-lighter/50">
+                  <p className="text-xs text-healthix-green font-medium">Sources:</p>
+                  <ul className="text-xs text-healthix-gray-light mt-1 space-y-1">
                     {message.sources.map((source, index) => (
-                      <li key={index}>• {source}</li>
+                      <li key={index} className="flex items-center">
+                        <svg className="w-2 h-2 mr-2 text-healthix-green" fill="currentColor" viewBox="0 0 8 8">
+                          <circle cx="4" cy="4" r="3" />
+                        </svg>
+                        {source}
+                      </li>
                     ))}
                   </ul>
                 </div>
               )}
               
-              <p className="text-xs mt-2 opacity-70">
+              <p className="text-xs mt-3 opacity-70 text-right">
                 {message.timestamp.toLocaleTimeString()}
               </p>
             </div>
@@ -127,11 +139,11 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ className = '' }) => {
         ))}
         
         {isLoading && (
-          <div className="flex justify-start">
-            <div className="bg-gray-100 px-4 py-2 rounded-lg">
-              <div className="flex items-center space-x-2">
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600"></div>
-                <p className="text-sm text-gray-600">Thinking...</p>
+          <div className="flex justify-start animate-fade-in">
+            <div className="bg-healthix-dark-light border border-healthix-dark-lighter px-4 py-3 rounded-xl">
+              <div className="flex items-center space-x-3">
+                <div className="loading-spinner h-4 w-4"></div>
+                <p className="text-sm text-healthix-gray-light">AI is thinking...</p>
               </div>
             </div>
           </div>
@@ -140,23 +152,29 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ className = '' }) => {
         <div ref={messagesEndRef} />
       </div>
 
-      <div className="border-t border-gray-200 p-4">
-        <div className="flex space-x-2">
+      <div className="border-t border-healthix-dark-lighter p-6 bg-healthix-dark-light/50">
+        <div className="flex space-x-3">
           <input
             type="text"
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyPress={handleKeyPress}
             placeholder="Ask about patient data..."
-            className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+            className="input-modern flex-1"
             disabled={isLoading}
           />
           <button
             onClick={handleSendMessage}
             disabled={!inputValue.trim() || isLoading}
-            className="px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="btn-primary"
           >
-            Send
+            {isLoading ? (
+              <div className="loading-spinner h-4 w-4"></div>
+            ) : (
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+              </svg>
+            )}
           </button>
         </div>
       </div>
