@@ -1,27 +1,31 @@
 from fastapi import APIRouter, HTTPException, Depends
 from app.models.patient import ChatMessage, ChatResponse
-from app.services.rag_service import RAGService
+from app.services.direct_chat_service import DirectChatService
 
 router = APIRouter()
 
-# Dependency to get RAG service
-def get_rag_service() -> RAGService:
-    return RAGService()
+# Dependency to get Direct Chat service
+def get_chat_service() -> DirectChatService:
+    return DirectChatService()
 
 @router.post("/", response_model=ChatResponse)
 async def chat_with_patients(
     message: ChatMessage,
-    rag_service: RAGService = Depends(get_rag_service)
+    chat_service: DirectChatService = Depends(get_chat_service)
 ):
-    """Chat with patient data using RAG"""
+    """Chat with patient data using direct Gemini context"""
     try:
-        # Generate response using RAG
-        rag_result = await rag_service.generate_rag_response(message.message)
+        # Generate response using direct approach
+        result = await chat_service.generate_response(message.message)
+        
+        # Extract patient names from mentioned patients for sources
+        sources = [patient["name"] for patient in result["mentioned_patients"]]
+        patient_ids = [patient["id"] for patient in result["mentioned_patients"]]
         
         return ChatResponse(
-            response=rag_result["response"],
-            sources=rag_result["sources"],
-            patient_ids=rag_result["patient_ids"]
+            response=result["response"],
+            sources=sources,
+            patient_ids=patient_ids
         )
         
     except Exception as e:
@@ -30,20 +34,14 @@ async def chat_with_patients(
             detail=f"Error processing chat message: {str(e)}"
         )
 
-@router.post("/refresh-knowledge-base")
-async def refresh_knowledge_base(rag_service: RAGService = Depends(get_rag_service)):
-    """Refresh the RAG knowledge base with all patient data"""
+@router.get("/health")
+async def chat_health_check(chat_service: DirectChatService = Depends(get_chat_service)):
+    """Health check for chat service"""
     try:
-        await rag_service.refresh_vector_store()
-        return {"message": "Knowledge base refreshed successfully"}
-        
+        status = await chat_service.get_health_status()
+        return status
     except Exception as e:
         raise HTTPException(
             status_code=500,
-            detail=f"Error refreshing knowledge base: {str(e)}"
+            detail=f"Chat service health check failed: {str(e)}"
         )
-
-@router.get("/health")
-async def chat_health_check():
-    """Health check for chat service"""
-    return {"status": "Chat service is healthy"}

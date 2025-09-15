@@ -6,20 +6,17 @@ from datetime import datetime
 
 from app.models.patient import Patient, PatientCreate, PatientUpdate
 from app.services.database_service import DatabaseService, get_database_service
-from app.services.rag_service import RAGService
+# RAG service removed - using direct Gemini approach for chat
 from app.database import get_db
 
 router = APIRouter()
 
-# Dependency to get RAG service
-def get_rag_service() -> RAGService:
-    return RAGService()
+# RAG service dependency removed - chat uses direct approach
 
 @router.post("/", response_model=Patient, status_code=status.HTTP_201_CREATED)
 async def create_patient(
     patient_data: PatientCreate,
-    db: Session = Depends(get_db),
-    rag_service: RAGService = Depends(get_rag_service)
+    db: Session = Depends(get_db)
 ):
     """Create a new patient record"""
     try:
@@ -28,18 +25,8 @@ async def create_patient(
         # Create patient in database
         patient = db_service.create_patient(patient_data)
         
-        # Add to vector store for RAG
-        try:
-            patient_dict = {
-                "id": patient.id,
-                "name": patient.name,
-                "date_of_birth": patient.date_of_birth,
-                "diagnosis": patient.diagnosis,
-                "prescription": patient.prescription
-            }
-            await rag_service.add_patient_to_vector_store(patient_dict)
-        except Exception as e:
-            print(f"Warning: Failed to add patient to vector store: {e}")
+        # No vector store needed - chat uses direct database queries
+        print(f"✅ Created patient: {patient.name} (ID: {patient.id})")
         
         return patient
         
@@ -89,8 +76,7 @@ async def get_patient(patient_id: str, db: Session = Depends(get_db)):
 async def update_patient(
     patient_id: str,
     patient_update: PatientUpdate,
-    db: Session = Depends(get_db),
-    rag_service: RAGService = Depends(get_rag_service)
+    db: Session = Depends(get_db)
 ):
     """Update a patient record"""
     try:
@@ -102,18 +88,8 @@ async def update_patient(
         if not updated_patient:
             raise HTTPException(status_code=404, detail="Patient not found")
         
-        # Update vector store
-        try:
-            patient_dict = {
-                "id": updated_patient.id,
-                "name": updated_patient.name,
-                "date_of_birth": updated_patient.date_of_birth,
-                "diagnosis": updated_patient.diagnosis,
-                "prescription": updated_patient.prescription
-            }
-            await rag_service.add_patient_to_vector_store(patient_dict)
-        except Exception as e:
-            print(f"Warning: Failed to update patient in vector store: {e}")
+        # No vector store needed - chat uses direct database queries
+        print(f"✅ Updated patient: {updated_patient.name} (ID: {updated_patient.id})")
         
         return updated_patient
         

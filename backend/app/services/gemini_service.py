@@ -151,23 +151,100 @@ class GeminiService:
                 "raw_text": response
             }
     
-    async def generate_chat_response(self, query: str, context: str) -> str:
-        """Generate chat response based on query and context"""
+    async def generate_chat_response(self, query: str, patients_data: list) -> dict:
+        """Generate chat response with direct patient data context"""
+        
+        # Format all patient data intelligently
+        context = self._format_patients_context(patients_data)
+        
         prompt = f"""
-        You are a helpful medical assistant. Answer the user's question based on the provided patient data context.
-        
-        Context (Patient Data):
+        You are an intelligent medical assistant with access to a comprehensive patient database. 
+        Answer the user's question based on the provided patient records.
+
+        PATIENT DATABASE:
         {context}
-        
-        User Question: {query}
-        
-        Please provide a helpful, accurate response based only on the information provided in the context.
-        If the context doesn't contain enough information to answer the question, please say so.
+
+        USER QUESTION: {query}
+
+        INSTRUCTIONS:
+        1. Provide accurate, helpful responses based ONLY on the patient data provided
+        2. If asked about specific patients, reference them by name and ID
+        3. For statistical queries, analyze the data and provide counts/percentages
+        4. If the data doesn't contain enough information, clearly state what's missing
+        5. Always be professional and maintain patient confidentiality in your responses
+        6. When referencing patients, include relevant details like diagnosis, prescription, etc.
+
+        RESPONSE FORMAT:
+        - Give a direct answer to the question
+        - Include specific patient names/IDs when relevant
+        - Provide supporting data/statistics when applicable
+        - Suggest follow-up questions if appropriate
         """
         
         try:
             response = self.model.generate_content(prompt)
-            return response.text
+            
+            # Extract mentioned patients from the query and response
+            mentioned_patients = self._extract_mentioned_patients(query, patients_data)
+            
+            return {
+                "response": response.text,
+                "mentioned_patients": mentioned_patients,
+                "total_patients_in_context": len(patients_data)
+            }
         except Exception as e:
             logger.error(f"Error generating chat response: {str(e)}")
-            return "I'm sorry, I encountered an error while processing your request."
+            return {
+                "response": "I'm sorry, I encountered an error while processing your request. Please try again.",
+                "mentioned_patients": [],
+                "total_patients_in_context": 0
+            }
+    
+    def _format_patients_context(self, patients_data: list) -> str:
+        """Format patient data for optimal Gemini context"""
+        if not patients_data:
+            return "No patient records available."
+        
+        formatted_context = []
+        formatted_context.append(f"=== PATIENT DATABASE ({len(patients_data)} records) ===\n")
+        
+        for i, patient in enumerate(patients_data, 1):
+            patient_info = f"""
+PATIENT {i}:
+- ID: {patient.get('id', 'N/A')}
+- Name: {patient.get('name', 'Unknown')}
+- Date of Birth: {patient.get('date_of_birth', 'N/A')}
+- Diagnosis: {patient.get('diagnosis', 'Not specified')}
+- Prescription: {patient.get('prescription', 'Not specified')}
+- Record Created: {patient.get('created_at', 'N/A')}
+---"""
+            formatted_context.append(patient_info)
+        
+        return "\n".join(formatted_context)
+    
+    def _extract_mentioned_patients(self, query: str, patients_data: list) -> list:
+        """Extract patients that might be relevant to the query"""
+        mentioned = []
+        query_lower = query.lower()
+        
+        for patient in patients_data:
+            # Check if patient name is mentioned in query
+            if patient.get('name') and patient['name'].lower() in query_lower:
+                mentioned.append({
+                    "id": patient.get('id'),
+                    "name": patient.get('name'),
+                    "reason": "name_mentioned"
+                })
+            # Check if diagnosis is mentioned
+            elif patient.get('diagnosis') and any(
+                word in patient['diagnosis'].lower() 
+                for word in query_lower.split()
+                if len(word) > 3
+            ):
+                mentioned.append({
+                    "id": patient.get('id'),
+                    "name": patient.get('name'),
+                    "reason": "diagnosis_match"
+                })
+        
+        return mentioned

@@ -7,7 +7,6 @@ from dotenv import load_dotenv
 from app.api import documents, patients, chat
 from app.database import create_tables
 from app.services.gemini_service import GeminiService
-from app.services.rag_service import RAGService
 
 # Load environment variables
 load_dotenv()

@@ -26,10 +26,10 @@ The system consists of four main components:
 - Audit trail with creation/update timestamps
 
 ### Intelligent Chat
-- RAG-powered chat interface for querying patient data
-- Natural language questions about patient records
-- Source attribution and confidence scoring
-- Real-time responses with relevant patient information
+- **Direct Gemini AI** chat interface for querying patient data
+- Natural language questions about patient records with **2M token context window**
+- Real-time responses with **complete patient database access**
+- No complex setup - works immediately with existing data
 
 ## 🛠️ Tech Stack
 
@@ -41,15 +41,14 @@ The system consists of four main components:
 
 ### Backend
 - **FastAPI** for API development
-- **Google Gemini 2.5-pro** for document processing
-- **ChromaDB** for vector storage
-- **Sentence Transformers** for embeddings
-- **Supabase** Python client
+- **Google Gemini 2.0-flash-exp** for document processing & chat
+- **Direct Context Approach** - No vector databases needed!
+- **SQLite** for simple, reliable data storage
 
 ### Database & Infrastructure
 - **SQLite** for local data storage (zero setup!)
-- **ChromaDB** for vector embeddings
 - **Google AI Studio** for Gemini API
+- **Direct Database Queries** for chat context
 
 ## 📁 Project Structure
 
@@ -153,8 +152,8 @@ Once the backend is running, visit:
 
 - `POST /api/documents/upload` - Upload and process document
 - `GET|POST|PUT|DELETE /api/patients/` - Patient CRUD operations
-- `POST /api/chat/` - Chat with patient data
-- `POST /api/chat/refresh-knowledge-base` - Refresh RAG index
+- `POST /api/chat/` - Chat with patient data (direct Gemini AI)
+- `GET /api/chat/health` - Check chat service health
 
 ## 🔧 Configuration
 

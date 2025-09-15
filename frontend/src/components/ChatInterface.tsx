@@ -19,7 +19,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ className = '' }) => {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
-      text: 'Welcome to Healthix! 👋 I\'m your intelligent patient data assistant. You can ask me questions about your patient records, such as "Show me patients with diabetes" or "What medications has John Smith been prescribed?"',
+      text: 'Welcome to Healthix! 👋 I\'m your intelligent patient data assistant powered by Gemini AI. I have direct access to all your patient records and can answer questions like:\n\n• "Show me all patients with diabetes"\n• "What medications has John Smith been prescribed?"\n• "How many patients do we have with hypertension?"\n• "List all patients born before 1980"\n\nI can analyze patterns, provide statistics, and help you find specific patient information instantly!',
       isUser: false,
       timestamp: new Date(),
     }
@@ -97,7 +97,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ className = '' }) => {
           </div>
           <h2 className="text-xl font-semibold text-white">Patient Data Chat</h2>
         </div>
-        <p className="text-healthix-gray-light">Ask questions about your patient records</p>
+        <p className="text-healthix-gray-light">Direct AI access to all patient data - No setup required!</p>
       </div>
 
       <div className="h-96 overflow-y-auto p-6 space-y-4 bg-healthix-dark/30">
