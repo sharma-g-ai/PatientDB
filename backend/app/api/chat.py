@@ -15,8 +15,8 @@ async def chat_with_patients(
 ):
     """Chat with patient data using RAG"""
     try:
-        # Generate response using RAG
-        rag_result = await rag_service.generate_rag_response(message.message)
+        # Generate response using RAG with optional upload_batch_id to include staging
+        rag_result = await rag_service.generate_rag_response(message.message, upload_batch_id=message.upload_batch_id)
         
         return ChatResponse(
             response=rag_result["response"],

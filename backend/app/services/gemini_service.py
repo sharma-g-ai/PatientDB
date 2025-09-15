@@ -298,16 +298,16 @@ class GeminiService:
                - Provide the most likely diagnosis based on medication analysis
             
             6. **Prescription Processing**:
-            - Extract all medications with dosage, frequency, and duration from all documents
-            - Include both generic and brand names if available
-            - Note any special instructions or precautions
-            - Combine prescriptions from multiple documents if present
+               - Extract all medications with dosage, frequency, and duration from all documents
+               - Include both generic and brand names if available
+               - Note any special instructions or precautions
+               - Combine prescriptions from multiple documents if present
             
             7. **Quality Assurance**:
-            - If information is not clearly available, use null for that field
-            - Confidence score should reflect how certain you are about the extraction (0-1)
-            - Include all visible text from all documents in raw_text field for reference
-            - Higher confidence for information extracted from official ID documents
+               - If information is not clearly available, use null for that field
+               - Confidence score should reflect how certain you are about the extraction (0-1)
+               - Include all visible text from all documents in raw_text field for reference
+               - Higher confidence for information extracted from official ID documents
             
             Process ALL the provided documents comprehensively and extract information from each one.
             
@@ -509,7 +509,7 @@ class GeminiService:
             "confidence_score": 0.3,
             "raw_text": response
         }
-
+    
     async def generate_chat_response(self, query: str, context: str) -> str:
         """Generate chat response based on query and context"""
         prompt = f"""
