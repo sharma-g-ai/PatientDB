@@ -1,5 +1,4 @@
 import google.generativeai as genai
-from google import genai as google_client
 import os
 from typing import Dict, Any, Optional, List
 import json
@@ -31,8 +30,6 @@ class GeminiService:
         
         genai.configure(api_key=api_key)
         self.model = genai.GenerativeModel('gemini-2.0-flash-exp')
-        # Use the google.genai client for file uploads (like in main.py)
-        self.client = google_client.Client(api_key=api_key)
     
     async def extract_patient_data(self, file_content: bytes, file_type: str) -> Dict[str, Any]:
         """Extract patient data from uploaded document"""
@@ -116,23 +113,23 @@ class GeminiService:
                     with open(pdf_path, 'wb') as f:
                         f.write(file_content)
                     
-                    # Upload to Gemini - use 'file' parameter instead of 'path'
-                    uploaded_file = self.client.files.upload(
-                        file=pdf_path,
-                        config={"mime_type": "application/pdf"}
-                    )
-                    
-                    # Generate content using uploaded file with proper message structure
-                    response = self.client.models.generate_content(
-                        model="gemini-2.0-flash-exp",
-                        contents=[
-                            {"role": "user", "parts": [
-                                {"file_data": {"mime_type": uploaded_file.mime_type, "file_uri": uploaded_file.uri}},
-                                {"text": prompt}
-                            ]}
-                        ]
-                    )
-                    response = response.text
+                    # For PDF files, we'll extract text first since direct PDF upload isn't supported
+                    # This is a fallback - in practice, users should upload images of documents
+                    try:
+                        import fitz  # PyMuPDF
+                        doc = fitz.open(pdf_path)
+                        text_content = ""
+                        for page in doc:
+                            text_content += page.get_text()
+                        doc.close()
+                        
+                        # Generate content using extracted text
+                        full_prompt = f"{prompt}\n\nExtracted PDF text:\n{text_content}"
+                        response = self.model.generate_content(full_prompt)
+                        response = response.text
+                    except ImportError:
+                        # If PyMuPDF is not available, return error
+                        raise Exception("PDF processing requires PyMuPDF (fitz). Please install with: pip install PyMuPDF")
                     
                 finally:
                     # Clean up temp file
@@ -220,21 +217,24 @@ class GeminiService:
                 with open(file_path, 'wb') as f:
                     f.write(file_content)
                 
-                # Upload to Gemini
-                print(f"🔄 Uploading {file_name} to Gemini...")
+                # Process file for Gemini
+                print(f"🔄 Processing {file_name} for Gemini...")
                 try:
-                    uploaded_file = self.client.files.upload(
-                        file=file_path, 
-                        config={"mime_type": mime_type}
-                    )
-                    uploaded_files.append(uploaded_file)
-                    print(f"✅ Successfully uploaded {file_name}")
-                except Exception as upload_error:
-                    print(f"❌ Error uploading {file_name}: {str(upload_error)}")
-                    logger.error(f"Error uploading {file_name}: {str(upload_error)}")
+                    if mime_type.startswith('image/'):
+                        # For images, load as PIL Image
+                        from PIL import Image
+                        image = Image.open(file_path)
+                        uploaded_files.append(image)
+                        print(f"✅ Successfully loaded image {file_name}")
+                    else:
+                        # For other files, we'll handle them differently
+                        print(f"⚠️ Skipping non-image file {file_name} - not supported in direct mode")
+                except Exception as processing_error:
+                    print(f"❌ Error processing {file_name}: {str(processing_error)}")
+                    logger.error(f"Error processing {file_name}: {str(processing_error)}")
             
             if not uploaded_files:
-                raise Exception("No files were successfully uploaded to Gemini")
+                raise Exception("No files were successfully processed for Gemini")
             
             # Create comprehensive prompt for medical document processing
             prompt = """
@@ -308,26 +308,14 @@ class GeminiService:
             """
             
             print("=== 🤖 SENDING MULTIPLE FILES TO LLM ===")
-            print(f"Number of files uploaded: {len(uploaded_files)}")
+            print(f"Number of files processed: {len(uploaded_files)}")
             logger.info(f"Sending {len(uploaded_files)} files to Gemini for processing")
             
-            # Generate content using all uploaded files with proper message structure
-            user_parts = []
-            for uploaded_file in uploaded_files:
-                user_parts.append({
-                    "file_data": {
-                        "mime_type": uploaded_file.mime_type, 
-                        "file_uri": uploaded_file.uri
-                    }
-                })
-            user_parts.append({"text": prompt})
+            # Generate content using all uploaded files
+            content_parts = [prompt]
+            content_parts.extend(uploaded_files)
             
-            response = self.client.models.generate_content(
-                model="gemini-2.0-flash-exp",
-                contents=[
-                    {"role": "user", "parts": user_parts}
-                ]
-            )
+            response = self.model.generate_content(content_parts)
             
             response_text = response.text
             print("=== 🤖 FULL LLM RESPONSE ===")
