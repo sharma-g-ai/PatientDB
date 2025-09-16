@@ -37,6 +37,7 @@ class ChatResponse(BaseModel):
     response: str
     sources: List[str] = []
     patient_ids: List[str] = []
+    matched_patients: List[Patient] = []
 
 class DocumentProcessingResultMulti(BaseModel):
     extracted_data: PatientBase

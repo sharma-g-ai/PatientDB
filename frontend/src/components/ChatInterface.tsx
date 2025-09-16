@@ -13,6 +13,7 @@ interface Message {
   timestamp: Date;
   sources?: string[];
   patientIds?: string[];
+  matchedPatients?: any[];
 }
 
 const ChatInterface: React.FC<ChatInterfaceProps> = ({ className = '' }) => {
@@ -26,6 +27,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ className = '' }) => {
   ]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -51,7 +53,9 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ className = '' }) => {
     setIsLoading(true);
 
     try {
-      const response: ChatResponse = await chatApi.sendMessage({ message: inputValue.trim() });
+      let response: ChatResponse;
+      // Always use simple endpoint to bypass any RAG
+      response = await chatApi.sendMessageWithFiles(inputValue.trim(), attachedFiles);
       
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
@@ -60,6 +64,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ className = '' }) => {
         timestamp: new Date(),
         sources: response.sources,
         patientIds: response.patient_ids,
+        matchedPatients: (response as any).matched_patients || [],
       };
 
       setMessages(prev => [...prev, assistantMessage]);
@@ -76,6 +81,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ className = '' }) => {
       setMessages(prev => [...prev, errorMessage]);
     } finally {
       setIsLoading(false);
+      setAttachedFiles([]);
     }
   };
 
@@ -86,8 +92,28 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ className = '' }) => {
     }
   };
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files ? Array.from(e.target.files) : [];
+    if (!files.length) return;
+    // Validate limits
+    const maxPerFile = 20 * 1024 * 1024; // 20MB
+    const maxFiles = 5;
+    const accepted: File[] = [];
+    for (const f of files) {
+      if (f.size <= maxPerFile) accepted.push(f);
+    }
+    const combined = [...attachedFiles, ...accepted].slice(0, maxFiles);
+    setAttachedFiles(combined);
+    // reset input value so same file can be reselected
+    e.currentTarget.value = '';
+  };
+
+  const removeFile = (idx: number) => {
+    setAttachedFiles(prev => prev.filter((_, i) => i !== idx));
+  };
+
   return (
-    <div className={`card-glow animate-fade-in ${className}`}>
+    <div className={`card-glow animate-fade-in ${className} flex flex-col h-full`}> 
       <div className="border-b border-healthix-dark-lighter p-6">
         <div className="flex items-center space-x-3 mb-2">
           <div className="p-2 bg-healthix-green/20 rounded-lg">
@@ -100,20 +126,20 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ className = '' }) => {
         <p className="text-healthix-gray-light">Ask questions about your patient records</p>
       </div>
 
-      <div className="h-96 overflow-y-auto p-6 space-y-4 bg-healthix-dark/30">
+      <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-healthix-dark/30">
         {messages.map((message) => (
           <div
             key={message.id}
             className={`flex ${message.isUser ? 'justify-end' : 'justify-start'} animate-slide-up`}
           >
             <div
-              className={`max-w-xs lg:max-w-md px-4 py-3 rounded-xl shadow-lg transition-all duration-300 hover:scale-105 ${
+              className={`max-w-3xl px-4 py-3 rounded-xl shadow-lg transition-all duration-300 hover:scale-105 ${
                 message.isUser
                   ? 'bg-gradient-to-r from-healthix-green to-healthix-green-light text-white shadow-glow'
                   : 'bg-healthix-dark-light border border-healthix-dark-lighter text-white'
               }`}
             >
-              <p className="text-sm leading-relaxed">{message.text}</p>
+              <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.text}</p>
               
               {message.sources && message.sources.length > 0 && (
                 <div className="mt-3 pt-3 border-t border-healthix-dark-lighter/50">
@@ -128,6 +154,21 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ className = '' }) => {
                       </li>
                     ))}
                   </ul>
+                </div>
+              )}
+
+              {/* Matched patients cards */}
+              {Array.isArray(message.matchedPatients) && message.matchedPatients.length > 0 && (
+                <div className="mt-3 grid grid-cols-1 gap-2">
+                  {message.matchedPatients.map((p: any, idx: number) => (
+                    <div key={idx} className="p-3 bg-healthix-dark border border-healthix-dark-lighter rounded">
+                      <div className="text-sm font-semibold text-white">{p.name}</div>
+                      <div className="text-xs text-healthix-gray-light">DOB: {p.date_of_birth}</div>
+                      <div className="text-xs text-healthix-gray-light">Diagnosis: {p.diagnosis || '-'}</div>
+                      <div className="text-xs text-healthix-gray-light">Prescription: {p.prescription || '-'}</div>
+                      <div className="text-[10px] text-healthix-gray-light/80 mt-1">ID: {p.id}</div>
+                    </div>
+                  ))}
                 </div>
               )}
               
@@ -153,7 +194,23 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ className = '' }) => {
       </div>
 
       <div className="border-t border-healthix-dark-lighter p-6 bg-healthix-dark-light/50">
-        <div className="flex space-x-3">
+        {/* Attached files preview */}
+        {attachedFiles.length > 0 && (
+          <div className="mb-3 flex flex-wrap gap-2">
+            {attachedFiles.map((f, i) => (
+              <div key={i} className="px-2 py-1 bg-healthix-dark-lighter text-xs text-white rounded flex items-center space-x-2">
+                <span className="max-w-[200px] truncate">{f.name}</span>
+                <button onClick={() => removeFile(i)} className="text-healthix-green hover:opacity-80">✕</button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="flex space-x-3 items-end">
+          <label className="btn-secondary cursor-pointer">
+            <input type="file" className="hidden" multiple onChange={handleFileChange} accept=".pdf,.txt,.doc,.docx,.png,.jpg,.jpeg,.csv" />
+            Attach
+          </label>
           <input
             type="text"
             value={inputValue}

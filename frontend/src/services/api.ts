@@ -75,6 +75,16 @@ export const chatApi = {
     return response.data;
   },
 
+  sendMessageWithFiles: async (text: string, files: File[]): Promise<ChatResponse> => {
+    const form = new FormData();
+    form.append('message', text);
+    files.forEach(f => form.append('files', f));
+    const response = await api.post('/api/chat/simple', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data;
+  },
+
   refreshKnowledgeBase: async (): Promise<void> => {
     await api.post('/api/chat/refresh-knowledge-base');
   },

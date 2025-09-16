@@ -9,7 +9,13 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Database URL
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./patients.db")
+# Ensure SQLite path is absolute and anchored to the backend directory to avoid
+# creating multiple databases depending on the working directory.
+DEFAULT_SQLITE_PATH = os.path.normpath(
+    os.path.join(os.path.dirname(__file__), "..", "patients.db")
+)
+DEFAULT_SQLITE_URL = f"sqlite:///{DEFAULT_SQLITE_PATH}"
+DATABASE_URL = os.getenv("DATABASE_URL", DEFAULT_SQLITE_URL)
 
 # Create engine
 engine = create_engine(

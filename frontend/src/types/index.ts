@@ -45,4 +45,5 @@ export interface ChatResponse {
   response: string;
   sources: string[];
   patient_ids: string[];
+  matched_patients?: Patient[];
 }

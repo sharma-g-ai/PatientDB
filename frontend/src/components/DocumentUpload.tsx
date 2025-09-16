@@ -12,9 +12,8 @@ const DocumentUpload: React.FC<DocumentUploadProps> = ({ onFileUpload, onUploadC
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     if (acceptedFiles.length > 0) {
-      const newFile = acceptedFiles[0];
-      setUploadedFiles(prev => [...prev, newFile]);
-      onFileUpload(newFile);
+      setUploadedFiles(prev => [...prev, ...acceptedFiles]);
+      acceptedFiles.forEach(f => onFileUpload(f));
     }
   }, [onFileUpload]);
 

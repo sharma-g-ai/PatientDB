@@ -190,8 +190,8 @@ const App: React.FC = () => {
       
       case 'chat':
         return (
-          <div className="max-w-4xl mx-auto">
-            <ChatInterface className="h-[600px]" />
+          <div className="h-[calc(100vh-5rem)]">{/* fill viewport minus nav height */}
+            <ChatInterface className="h-full" />
           </div>
         );
       
@@ -294,7 +294,7 @@ const App: React.FC = () => {
       </nav>
       
       {/* Main Content */}
-      <main className="py-8 px-4 animate-fade-in">
+      <main className="py-0 px-0 animate-fade-in h-[calc(100vh-5rem)]">{/* 5rem ≈ nav height */}
         {renderCurrentView()}
       </main>
     </div>
