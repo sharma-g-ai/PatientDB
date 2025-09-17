@@ -108,3 +108,9 @@ celerybeat.pid
 .dmypy.json
 dmypy.json
 backend/patients.db
+
+# Database files
+backend/patients.db
+*.db
+*.sqlite
+*.sqlite3
