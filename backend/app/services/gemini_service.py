@@ -65,6 +65,9 @@ class GeminiService:
                - Prioritize name from ID documents (Aadhaar, PAN card)
                - If no ID document, extract from prescription header or patient details section
                - Use the full name as it appears on the official document
+               - **IMPORTANT**: If the name is in Devanagari script (Hindi/Sanskrit), transliterate it to English using standard transliteration rules
+               - Always return the name in English/Latin script, not in Devanagari or any other script
+               - For example: राम शर्मा should be transliterated as "Ram Sharma"
             
             3. **Date of Birth**: 
                - Extract DOB from ID documents first (Aadhaar cards show DOB, PAN cards show it in some cases)
@@ -602,6 +605,10 @@ class GeminiService:
                     content = await self._process_excel_file_optimized(file_content, file_name)
                 elif file_type == 'text/csv' or file_name.lower().endswith('.csv'):
                     content = await self._process_csv_file_optimized(file_content, file_name)
+                elif file_type.startswith('image/') or file_name.lower().endswith(('.jpg', '.jpeg', '.png', '.gif', '.tiff')):
+                    content = await self._process_image_file_optimized(file_content, file_name, file_type)
+                elif file_type == 'application/pdf' or file_name.lower().endswith('.pdf'):
+                    content = await self._process_pdf_file_optimized(file_content, file_name)
                 elif file_type.startswith('text/') or file_name.lower().endswith('.txt'):
                     content = await self._process_text_file_optimized(file_content, file_name)
                 else:
@@ -696,6 +703,75 @@ class GeminiService:
             
         except Exception as e:
             return f"CSV file '{file_name}': Error - {str(e)}"
+
+    async def _process_image_file_optimized(self, file_content: bytes, file_name: str, file_type: str) -> str:
+        """Process image file with optimization for chat context"""
+        try:
+            image = Image.open(io.BytesIO(file_content))
+            
+            prompt = f"""
+            Analyze this image file '{file_name}' quickly and provide a concise summary.
+            If it contains medical information, charts, tables, or any healthcare-related data, 
+            extract the key information in 2-3 sentences maximum.
+            Focus on the most important textual information and data values.
+            """
+            
+            response = self._generate_content_with_image(prompt, image)
+            # Truncate for optimization
+            if len(response) > 500:
+                response = response[:500] + "... [truncated for performance]"
+            return f"🖼️ {file_name}: {response}"
+            
+        except Exception as e:
+            return f"Image file '{file_name}': Error - {str(e)}"
+
+    async def _process_pdf_file_optimized(self, file_content: bytes, file_name: str) -> str:
+        """Process PDF file with optimization for chat context"""
+        try:
+            # Create temp file for PDF
+            temp_dir = tempfile.mkdtemp()
+            pdf_path = os.path.join(temp_dir, file_name)
+            
+            with open(pdf_path, 'wb') as f:
+                f.write(file_content)
+            
+            # Upload to Gemini
+            uploaded_file = self.client.files.upload(
+                file=pdf_path,
+                config={"mime_type": "application/pdf"}
+            )
+            
+            prompt = f"""
+            Analyze this PDF document '{file_name}' and provide a concise summary in 2-3 sentences.
+            If it contains medical data, patient information, or healthcare records,
+            extract only the most important key points and data values.
+            Keep the response under 300 words for performance.
+            """
+            
+            # Generate content using uploaded file
+            resp_obj = self.client.models.generate_content(
+                model="gemini-2.0-flash-exp",
+                contents=[
+                    {"role": "user", "parts": [
+                        {"file_data": {"mime_type": uploaded_file.mime_type, "file_uri": uploaded_file.uri}},
+                        {"text": prompt}
+                    ]}
+                ]
+            )
+            
+            response = resp_obj.text or ""
+            
+            # Clean up
+            shutil.rmtree(temp_dir)
+            
+            # Truncate for optimization
+            if len(response) > 500:
+                response = response[:500] + "... [truncated for performance]"
+            
+            return f"📄 {file_name}: {response}"
+            
+        except Exception as e:
+            return f"PDF file '{file_name}': Error - {str(e)}"
 
     async def _process_text_file_optimized(self, file_content: bytes, file_name: str) -> str:
         """Process text file with optimization"""

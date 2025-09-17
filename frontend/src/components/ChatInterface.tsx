@@ -68,24 +68,37 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ className = '' }) => {
 
   useEffect(() => {
     scrollToBottom();
-    initializeChatSession();
-  }, [messages]);
-
-  // Initialize chat session
-  const initializeChatSession = async () => {
+    // Only initialize chat session if we don't have one already
     if (!sessionId) {
-      try {
-        const response = await fetch('/api/chat/start-session', {
-          method: 'POST',
-        });
-        
-        if (response.ok) {
-          const data = await response.json();
-          setSessionId(data.session_id);
-        }
-      } catch (error) {
-        console.error('Failed to initialize chat session:', error);
+      initializeChatSession();
+    }
+  }, [messages]); // Remove sessionId from dependencies to prevent re-initialization
+
+  // Initialize chat session only once
+  const initializeChatSession = async () => {
+    // Check if we already have a session in localStorage
+    const existingSessionId = localStorage.getItem('chat_session_id');
+    
+    if (existingSessionId) {
+      setSessionId(existingSessionId);
+      // Load existing files for this session
+      await fetchAttachedFiles(existingSessionId);
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/chat/start-session', {
+        method: 'POST',
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setSessionId(data.session_id);
+        // Store session ID in localStorage for persistence
+        localStorage.setItem('chat_session_id', data.session_id);
       }
+    } catch (error) {
+      console.error('Failed to initialize chat session:', error);
     }
   };
 
@@ -207,11 +220,12 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ className = '' }) => {
     }
   };
 
-  const fetchAttachedFiles = async () => {
-    if (!sessionId) return;
+  const fetchAttachedFiles = async (sessionIdParam?: string) => {
+    const targetSessionId = sessionIdParam || sessionId;
+    if (!targetSessionId) return;
 
     try {
-      const response = await fetch(`/api/chat/session/${sessionId}/files`);
+      const response = await fetch(`/api/chat/session/${targetSessionId}/files`);
       if (response.ok) {
         const data = await response.json();
         setAttachedFiles(data.files);
@@ -287,10 +301,17 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ className = '' }) => {
     setIsLoading(true);
 
     try {
-      // Use the new file-aware chat API if we have a session
-      if (sessionId && attachedFiles.length > 0) {
+      // Always ensure we have a session
+      let currentSessionId = sessionId;
+      if (!currentSessionId) {
+        await initializeChatSession();
+        currentSessionId = sessionId;
+      }
+
+      // Use the file-aware chat API if we have a session and files
+      if (currentSessionId && attachedFiles.length > 0) {
         const formData = new FormData();
-        formData.append('session_id', sessionId);
+        formData.append('session_id', currentSessionId);
         formData.append('query', messageText);
         formData.append('patient_context', 'Patient data context available.');
 
@@ -314,16 +335,50 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ className = '' }) => {
 
         setMessages(prev => [...prev, assistantMessage]);
       } else {
-        // Fallback to original API
-        const response: ChatResponse = await chatApi.sendMessage({ message: messageText });
+        // Use chat API for simple conversation without files
+        if (!currentSessionId) {
+          // Create a temporary session for the conversation
+          const sessionResponse = await fetch('/api/chat/start-session', {
+            method: 'POST',
+          });
+          
+          if (sessionResponse.ok) {
+            const sessionData = await sessionResponse.json();
+            currentSessionId = sessionData.session_id;
+            setSessionId(currentSessionId);
+            if (currentSessionId) {
+              localStorage.setItem('chat_session_id', currentSessionId);
+            }
+          }
+        }
+
+        // Ensure we have a valid session ID
+        if (!currentSessionId) {
+          throw new Error('Unable to create chat session');
+        }
+
+        // Use the chat endpoint with empty context
+        const formData = new FormData();
+        formData.append('session_id', currentSessionId);
+        formData.append('query', messageText);
+        formData.append('patient_context', 'No specific patient data provided.');
+
+        const response = await fetch('/api/chat/chat', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to get response from chat API');
+        }
+
+        const data = await response.json();
         
         const assistantMessage: Message = {
           id: (Date.now() + 1).toString(),
-          text: response.response,
+          text: data.response,
           isUser: false,
           timestamp: new Date(),
-          sources: response.sources,
-          patientIds: response.patient_ids,
         };
 
         setMessages(prev => [...prev, assistantMessage]);
