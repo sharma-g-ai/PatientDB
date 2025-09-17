@@ -11,8 +11,11 @@ from app.services.database_service import DatabaseService
 from app.database import SessionLocal
 from app.services.gemini_service import GeminiService
 import logging
+from datetime import datetime
+import uuid
 import re
 import json
+import pandas as pd
 
 try:
     import google.generativeai as genai  # Fallback embedding provider
@@ -311,3 +314,98 @@ class RAGService:
         except Exception as e:
             logger.error(f"Error refreshing vector store: {str(e)}")
             raise
+
+    async def add_chat_attachment(
+        self, 
+        chat_session_id: str, 
+        content: str, 
+        metadata: dict
+    ) -> None:
+        """Add attachment content to chat session context (separate from RAG database)"""
+        try:
+            # Create a document ID for this attachment
+            attachment_id = f"chat_{chat_session_id}_attachment_{metadata.get('filename', 'unknown')}"
+            
+            # Store in session context (completely separate from RAG database)
+            # This is for attached files only, not for general document retrieval
+            if not hasattr(self, 'chat_contexts'):
+                self.chat_contexts = {}
+            
+            if chat_session_id not in self.chat_contexts:
+                self.chat_contexts[chat_session_id] = {
+                    "attachments": [],
+                    "attached_files_context": "",  # Separate context for attached files
+                    "created_at": datetime.now().isoformat()
+                }
+            
+            # Add attachment to session context
+            self.chat_contexts[chat_session_id]["attachments"].append({
+                "attachment_id": attachment_id,
+                "content": content,
+                "metadata": metadata,
+                "added_at": datetime.now().isoformat()
+            })
+            
+            # Update ONLY the attached files context (not RAG database)
+            self.chat_contexts[chat_session_id]["attached_files_context"] += f"\n\n--- ATTACHED FILE: {metadata.get('filename')} ---\n{content}"
+            
+            print(f"Added attachment to chat session {chat_session_id} (separate from RAG database)")
+            
+        except Exception as e:
+            print(f"Error adding chat attachment: {str(e)}")
+            raise
+    
+    async def get_chat_attachments(self, chat_session_id: str) -> List[dict]:
+        """Get all attachments for a chat session"""
+        try:
+            if not hasattr(self, 'chat_contexts'):
+                self.chat_contexts = {}
+            
+            if chat_session_id not in self.chat_contexts:
+                return []
+            
+            return self.chat_contexts[chat_session_id].get("attachments", [])
+        
+        except Exception as e:
+            print(f"Error retrieving chat attachments: {str(e)}")
+            return []
+    
+    def get_chat_context(self, chat_session_id: str) -> str:
+        """Get ONLY the attached files context (not RAG database context)"""
+        try:
+            if not hasattr(self, 'chat_contexts'):
+                self.chat_contexts = {}
+            
+            if chat_session_id not in self.chat_contexts:
+                return ""
+            
+            # Return only attached files context, not RAG database context
+            return self.chat_contexts[chat_session_id].get("attached_files_context", "")
+        
+        except Exception as e:
+            print(f"Error retrieving chat context: {str(e)}")
+            return ""
+    
+    def _split_text(self, text: str, chunk_size: int = 1000) -> List[str]:
+        """Split text into manageable chunks"""
+        chunks = []
+        words = text.split()
+        current_chunk = []
+        current_length = 0
+        
+        for word in words:
+            if current_length + len(word) + 1 > chunk_size:
+                if current_chunk:
+                    chunks.append(" ".join(current_chunk))
+                    current_chunk = [word]
+                    current_length = len(word)
+                else:
+                    chunks.append(word)
+            else:
+                current_chunk.append(word)
+                current_length += len(word) + 1
+        
+        if current_chunk:
+            chunks.append(" ".join(current_chunk))
+        
+        return chunks
