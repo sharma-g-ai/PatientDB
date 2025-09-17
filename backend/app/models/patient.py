@@ -17,8 +17,12 @@ class PatientUpdate(BaseModel):
     diagnosis: Optional[str] = Field(None, max_length=500)
     prescription: Optional[str] = Field(None, max_length=1000)
 
-class Patient(PatientBase):
+class Patient(BaseModel):
     id: str
+    name: str = Field(..., min_length=1, max_length=100)
+    date_of_birth: str = Field(..., description="Date in YYYY-MM-DD format")
+    diagnosis: Optional[str] = Field(None, max_length=500)
+    prescription: Optional[str] = Field(None, max_length=1000)
     created_at: datetime
     updated_at: Optional[datetime] = None
 
@@ -32,6 +36,7 @@ class DocumentProcessingResult(BaseModel):
 
 class ChatMessage(BaseModel):
     message: str = Field(..., min_length=1, max_length=1000)
+    upload_batch_id: Optional[str] = None
 
 class ChatResponse(BaseModel):
     response: str
@@ -49,3 +54,4 @@ class DocumentProcessingResultMulti(BaseModel):
     medical_history: Optional[str] = None
     doctor_name: Optional[str] = None
     hospital_clinic: Optional[str] = None
+    upload_batch_id: Optional[str] = None

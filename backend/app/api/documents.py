@@ -8,12 +8,18 @@ from pathlib import Path
 from app.models.patient import DocumentProcessingResult, PatientBase
 from app.services.gemini_service import GeminiService
 from app.models.patient import DocumentProcessingResultMulti
+from app.services.rag_service import RAGService
+import uuid
 
 router = APIRouter()
 
 # Dependency to get Gemini service
 def get_gemini_service() -> GeminiService:
     return GeminiService()
+
+# Dependency to get RAG service
+def get_rag_service() -> RAGService:
+    return RAGService()
 
 @router.post("/upload", response_model=DocumentProcessingResult)
 async def upload_document(
@@ -91,7 +97,8 @@ async def get_supported_file_types():
 @router.post("/upload-multiple", response_model=DocumentProcessingResultMulti)
 async def upload_multiple_documents(
     files: list[UploadFile] = File(...),
-    gemini_service: GeminiService = Depends(get_gemini_service)
+    gemini_service: GeminiService = Depends(get_gemini_service),
+    rag_service: RAGService = Depends(get_rag_service)
 ):
     """Upload and process multiple patient documents in a single LLM context."""
     if not files or len(files) == 0:
@@ -125,6 +132,24 @@ async def upload_multiple_documents(
     try:
         # Single LLM call with all files via Gemini file upload API
         result = await gemini_service.extract_patient_data_from_multiple_files(files_data)
+        # Create an upload_batch_id for staging
+        upload_batch_id = str(uuid.uuid4())
+        # Stage combined raw_text + basic fields for immediate chat availability
+        combined_text = " | ".join(filter(None, [
+            result.get("name"),
+            result.get("date_of_birth"),
+            result.get("diagnosis"),
+            result.get("prescription"),
+            result.get("raw_text", "")
+        ]))
+        try:
+            await rag_service.add_staging_documents(
+                upload_batch_id=upload_batch_id,
+                text=combined_text,
+                metadata={"document_types": result.get("document_types") or []}
+            )
+        except Exception as stage_err:
+            print(f"Warning: staging index failed: {stage_err}")
 
         # Map to a response shape similar to single-file result plus metadata
         return {
@@ -141,7 +166,8 @@ async def upload_multiple_documents(
             "document_types": result.get("document_types"),
             "medical_history": result.get("medical_history"),
             "doctor_name": result.get("doctor_name"),
-            "hospital_clinic": result.get("hospital_clinic")
+            "hospital_clinic": result.get("hospital_clinic"),
+            "upload_batch_id": upload_batch_id
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error processing documents: {str(e)}")
