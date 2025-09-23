@@ -27,5 +27,5 @@ USER appuser
 
 EXPOSE 8000
 
-# Use shell form to allow environment variable expansion
-CMD uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}
+# Debug: Show environment and start server
+CMD echo "PORT environment variable: $PORT" && echo "Starting server on port ${PORT:-8000}" && uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}
