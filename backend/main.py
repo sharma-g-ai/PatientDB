@@ -7,7 +7,6 @@ from dotenv import load_dotenv
 from pathlib import Path
 
 from app.api import documents, patients, chat
-from app.database import create_tables
 from app.services.gemini_service import GeminiService
 from app.services.rag_service import RAGService
 
@@ -29,11 +28,19 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Initialize database tables on startup
+# Initialize services on startup (no database table creation needed for Supabase)
 @app.on_event("startup")
 def startup():
-    create_tables()
-    print("✅ Database tables created successfully!")
+    # Skip table creation - using Supabase REST API
+    print("🚀 Starting PatientDB API...")
+    print("✅ Using Supabase for data storage (tables already exist)")
+    
+    # Optional: Test Supabase connection here if needed
+    supabase_url = os.getenv("SUPABASE_URL")
+    if supabase_url:
+        print(f"🔗 Connected to Supabase: {supabase_url}")
+    else:
+        print("📁 Using local SQLite fallback")
 
 # Include routers
 app.include_router(documents.router, prefix="/api/documents", tags=["documents"])

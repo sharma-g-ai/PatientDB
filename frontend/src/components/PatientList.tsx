@@ -16,7 +16,7 @@ const PatientList: React.FC<PatientListProps> = ({ onPatientSelect, refreshTrigg
     try {
       setLoading(true);
       setError(null);
-      const data = await patientsApi.getAllPatients();
+      const data = await patientsApi.getPatients(); // Fixed: changed from getAllPatients to getPatients
       setPatients(data);
     } catch (err) {
       setError('Failed to load patients');
