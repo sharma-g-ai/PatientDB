@@ -1,17 +1,14 @@
 [build]
-builder = "nixpacks"
+builder = "dockerfile"
+dockerfilePath = "Dockerfile"
 
 [deploy]
-startCommand = "python -m uvicorn main:app --host 0.0.0.0 --port $PORT"
 healthcheckPath = "/health"
 healthcheckTimeout = 300
 
-# Force Python detection
+# Remove the startCommand - let Dockerfile handle it
+# startCommand = "python -m uvicorn main:app --host 0.0.0.0 --port $PORT"
+
 [build.env]
-NIXPACKS_PYTHON_VERSION = "3.11"
 PYTHONUNBUFFERED = "1"
 PIP_NO_CACHE_DIR = "1"
-
-# Disable Node.js detection
-[build.nixpacksConfig]
-providers = ["python"]
