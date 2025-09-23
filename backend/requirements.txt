@@ -21,7 +21,8 @@ supabase==2.3.4
 
 # AI/ML dependencies - Python 3.13 compatible versions
 google-generativeai>=0.8.0
-# sentence-transformers>=3.0.0
+sentence-transformers>=3.0.0
+chromadb>=0.4.0
 pandas>=2.2.0
 numpy>=1.26.4
 openpyxl>=3.1.2
