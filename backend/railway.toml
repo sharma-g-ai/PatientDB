@@ -2,8 +2,17 @@
 builder = "nixpacks"
 
 [build.nixpacks]
-# Force Python 3.11
-pythonVersion = "3.11"
+# Force Python 3.11 more explicitly
+pythonVersion = "3.11.7"
+
+# Add environment variables for build
+[build.env]
+PYTHON_VERSION = "3.11.7"
+MISE_PYTHON_VERSION = "3.11.7"
 
 [deploy]
 startCommand = "uvicorn main:app --host 0.0.0.0 --port $PORT"
+
+# Add runtime environment variables
+[deploy.env]
+PYTHON_VERSION = "3.11.7"
