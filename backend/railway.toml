@@ -2,8 +2,13 @@
 builder = "dockerfile"
 dockerfilePath = "Dockerfile"
 
+[build.buildCommand]
+# Skip this - let Docker handle everything
+
 [deploy]
 startCommand = "uvicorn main:app --host 0.0.0.0 --port $PORT"
 
-[deploy.env]
-PYTHON_VERSION = "3.11.7"
+# Optimize build settings
+[build.env]
+DOCKER_BUILDKIT = "1"
+BUILDKIT_INLINE_CACHE = "1"
