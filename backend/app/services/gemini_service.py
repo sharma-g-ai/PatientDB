@@ -62,12 +62,13 @@ class GeminiService:
             1. **Patient Identity**: If you see an Aadhaar card, PAN card, or any government ID document, extract the person's name and date of birth from these documents as they are the most reliable source for patient identity.
             
             2. **Name Extraction**: 
-               - Prioritize name from ID documents (Aadhaar, PAN card)
-               - If no ID document, extract from prescription header or patient details section
-               - Use the full name as it appears on the official document
-               - **IMPORTANT**: If the name is in Devanagari script (Hindi/Sanskrit), transliterate it to English using standard transliteration rules
-               - Always return the name in English/Latin script, not in Devanagari or any other script
-               - For example: राम शर्मा should be transliterated as "Ram Sharma"
+               - **CRITICAL**: Always return names in English/Latin script ONLY
+               - If you see both Devanagari (Hindi) and English versions of a name, ALWAYS use the English version
+               - For example: If you see "गीताशिष जतिन शर्मा" and "Geetashish Jatin Sharma", use "Geetashish Jatin Sharma"
+               - Prioritize name from ID documents (Aadhaar, PAN card) but use the English transliteration
+               - If only Devanagari script is available, transliterate to English using standard transliteration rules
+               - **NEVER return names in Devanagari, Arabic, or any non-Latin scripts**
+               - Use the full name as it appears in English on the official document
             
             3. **Date of Birth**: 
                - Extract DOB from ID documents first (Aadhaar cards show DOB, PAN cards show it in some cases)
@@ -91,6 +92,16 @@ class GeminiService:
                - Extract all medications with dosage, frequency, and duration
                - Include both generic and brand names if available
                - Note any special instructions or precautions
+               - **CRITICAL FORMATTING**: Return prescription as clean, readable text - NOT as a list or array
+               - **Example Format**: 
+                 "Tab. Cefixime XP 325 - 1 OD (once daily)
+                  Tab. Dolo 650 - 1 TID (three times daily) 
+                  Tab. Montair 10 - 1 OD (once daily)
+                  Betadine gargle 2-3 times daily
+                  Rest at home"
+               - **DO NOT use square brackets, quotes, or list formatting**
+               - Use line breaks or semicolons to separate medications
+               - Make it human-readable and professional
             
             6. **Quality Assurance**:
                - If information is not clearly available, use null for that field
@@ -273,9 +284,15 @@ class GeminiService:
             1. **Patient Identity**: If you see an Aadhaar card, PAN card, or any government ID document, extract the person's name and date of birth from these documents as they are the most reliable source for patient identity.
             
             2. **Name Extraction**: 
-               - Prioritize name from ID documents (Aadhaar, PAN card)
-               - If no ID document, extract from prescription header or patient details section
-               - Use the full name as it appears on the official document
+               - **CRITICAL RULE**: Always return names in English/Latin script ONLY
+               - **Example**: If you see both "गीताशिष जतिन शर्मा" and "Geetashish Jatin Sharma", use "Geetashish Jatin Sharma"
+               - **Priority**: ID documents (Aadhaar shows both Hindi and English - USE ENGLISH VERSION)
+               - If only Devanagari script is available, transliterate to English:
+                 * गीताशिष जतिन शर्मा → "Geetashish Jatin Sharma" 
+                 * राम शर्मा → "Ram Sharma"
+                 * सुनीता देवी → "Sunita Devi"
+               - **NEVER return names in Devanagari, Arabic, Tamil, or any non-Latin scripts**
+               - Use the full name as it appears in English on the official document
             
             3. **Date of Birth**: 
                - Extract DOB from ID documents first (Aadhaar cards show DOB, PAN cards show it in some cases)
@@ -305,6 +322,16 @@ class GeminiService:
                - Include both generic and brand names if available
                - Note any special instructions or precautions
                - Combine prescriptions from multiple documents if present
+               - **CRITICAL FORMATTING**: Return prescription as clean, readable text - NOT as a list or array
+               - **Example Format**: 
+                 "Tab. Cefixime XP 325 - 1 OD (once daily)
+                  Tab. Dolo 650 - 1 TID (three times daily) 
+                  Tab. Montair 10 - 1 OD (once daily)
+                  Betadine gargle 2-3 times daily
+                  Rest at home"
+               - **DO NOT use square brackets, quotes, or list formatting**
+               - Use line breaks or semicolons to separate medications
+               - Make it human-readable and professional
             
             7. **Quality Assurance**:
                - If information is not clearly available, use null for that field
@@ -439,10 +466,98 @@ class GeminiService:
             text = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f]", "", text)
             return text.strip()
 
+        def _transliterate_name(name: str) -> str:
+            """Transliterate Devanagari names to English"""
+            if not name:
+                return name
+            
+            # Check if name contains Devanagari characters
+            devanagari_range = range(0x0900, 0x097F)
+            has_devanagari = any(ord(char) in devanagari_range for char in name)
+            
+            if not has_devanagari:
+                return name  # Already in English
+            
+            # Simple transliteration map for common characters
+            transliteration_map = {
+                'गीताशिष': 'Geetashish',
+                'जतिन': 'Jatin', 
+                'शर्मा': 'Sharma',
+                'राम': 'Ram',
+                'सुनीता': 'Sunita',
+                'देवी': 'Devi',
+                'कुमार': 'Kumar',
+                'सिंह': 'Singh',
+                'अग्रवाल': 'Agarwal',
+                'गुप्ता': 'Gupta',
+                'वर्मा': 'Verma',
+                'मिश्रा': 'Mishra'
+            }
+            
+            # Try direct replacement first
+            for hindi, english in transliteration_map.items():
+                name = name.replace(hindi, english)
+            
+            # If still contains Devanagari, try phonetic transliteration
+            if any(ord(char) in devanagari_range for char in name):
+                # Basic character-by-character transliteration
+                char_map = {
+                    'अ': 'a', 'आ': 'aa', 'इ': 'i', 'ई': 'ee', 'उ': 'u', 'ऊ': 'oo',
+                    'ए': 'e', 'ऐ': 'ai', 'ओ': 'o', 'औ': 'au',
+                    'क': 'k', 'ख': 'kh', 'ग': 'g', 'घ': 'gh', 'च': 'ch', 'छ': 'chh',
+                    'ज': 'j', 'झ': 'jh', 'ट': 't', 'ठ': 'th', 'ड': 'd', 'ढ': 'dh',
+                    'त': 't', 'थ': 'th', 'द': 'd', 'ध': 'dh', 'न': 'n', 'प': 'p',
+                    'फ': 'ph', 'ब': 'b', 'भ': 'bh', 'म': 'm', 'य': 'y', 'र': 'r',
+                    'ल': 'l', 'व': 'w', 'श': 'sh', 'ष': 'sh', 'स': 's', 'ह': 'h',
+                    '्': '', 'ं': 'n', 'ः': 'h', 'ा': 'aa', 'ि': 'i', 'ी': 'ee',
+                    'ु': 'u', 'ू': 'oo', 'े': 'e', 'ै': 'ai', 'ो': 'o', 'ौ': 'au',
+                    ' ': ' '
+                }
+                
+                transliterated = ''
+                for char in name:
+                    if char in char_map:
+                        transliterated += char_map[char]
+                    elif ord(char) not in devanagari_range:
+                        transliterated += char
+                    else:
+                        transliterated += char  # Keep unknown characters as-is
+                
+                # Clean up the result
+                transliterated = re.sub(r'([a-z])\1+', r'\1', transliterated)  # Remove repeated chars
+                transliterated = ' '.join(word.capitalize() for word in transliterated.split())
+                
+                return transliterated
+            
+            return name
+
+        def _clean_prescription_format(prescription: str) -> str:
+            """Clean up prescription formatting to remove list-like syntax"""
+            if not prescription:
+                return prescription
+            
+            # Remove square brackets
+            prescription = re.sub(r'^\[|\]$', '', prescription.strip())
+            
+            # Remove quotes around individual items
+            prescription = re.sub(r"'([^']*)'", r'\1', prescription)
+            prescription = re.sub(r'"([^"]*)"', r'\1', prescription)
+            
+            # Convert comma-separated items to line breaks
+            if ', ' in prescription and not '\n' in prescription:
+                prescription = prescription.replace(', ', '\n')
+            
+            # Clean up any remaining formatting issues
+            prescription = re.sub(r',\s*\n', '\n', prescription)
+            prescription = re.sub(r'\n\s*\n', '\n', prescription)
+            
+            return prescription.strip()
+
         def _normalize(parsed: Dict[str, Any]) -> Dict[str, Any]:
             # Map common key typos
             if 'datee_of_birth' in parsed and 'date_of_birth' not in parsed:
                 parsed['date_of_birth'] = parsed.pop('datee_of_birth')
+            
             # Ensure keys exist and coerce to string when applicable
             name = parsed.get('name')
             dob = parsed.get('date_of_birth')
@@ -450,6 +565,19 @@ class GeminiService:
             prescription = parsed.get('prescription')
             conf = parsed.get('confidence_score', 0.5)
             raw_text = parsed.get('raw_text', '')
+            
+            # CRITICAL: Clean up prescription formatting
+            if prescription and isinstance(prescription, str):
+                prescription = _clean_prescription_format(prescription)
+                print(f"💊 Prescription after cleaning: {prescription}")
+                logger.info(f"Prescription after cleaning: {prescription}")
+            
+            # CRITICAL: Transliterate name to English if needed
+            if name and isinstance(name, str):
+                name = _transliterate_name(name)
+                print(f"🔤 Name after transliteration: {name}")
+                logger.info(f"Name after transliteration: {name}")
+            
             return {
                 'name': None if name is None else str(name),
                 'date_of_birth': None if dob is None else str(dob),
@@ -492,6 +620,19 @@ class GeminiService:
             conf_match = re.search(r'"confidence_score"\s*:\s*([0-9\.]+)', text)
             confidence = float(conf_match.group(1)) if conf_match else 0.5
             raw_block = rx('raw_text')
+            
+            # Apply transliteration to name
+            if name:
+                name = _transliterate_name(name)
+                print(f"🔤 Name after regex fallback transliteration: {name}")
+                logger.info(f"Name after regex fallback transliteration: {name}")
+            
+            # Apply prescription cleaning
+            if prescription:
+                prescription = _clean_prescription_format(prescription)
+                print(f"💊 Prescription after regex fallback cleaning: {prescription}")
+                logger.info(f"Prescription after regex fallback cleaning: {prescription}")
+            
             return {
                 'name': None if name is None else str(name),
                 'date_of_birth': None if dob is None else str(dob),

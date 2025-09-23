@@ -44,28 +44,84 @@ export const documentsApi = {
 // Patients API
 export const patientsApi = {
   createPatient: async (patientData: PatientCreate): Promise<Patient> => {
-    const response = await api.post('/api/patients/', patientData);
-    return response.data;
+    // Send patient data directly (no files)
+    const response = await fetch('/api/patients/', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        name: patientData.name,
+        date_of_birth: patientData.date_of_birth,
+        diagnosis: patientData.diagnosis || null,
+        prescription: patientData.prescription || null,
+        confidence_score: null,
+        raw_text: null
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to create patient');
+    }
+
+    const result = await response.json();
+    return result.patient;
   },
 
-  getAllPatients: async (): Promise<Patient[]> => {
-    const response = await api.get('/api/patients/');
-    return response.data;
+  getPatients: async (): Promise<Patient[]> => {
+    const response = await fetch('/api/patients/');
+    
+    if (!response.ok) {
+      throw new Error('Failed to fetch patients');
+    }
+
+    const result = await response.json();
+    // Extract patients array from the new response structure
+    return result.patients || [];
   },
 
-  getPatient: async (patientId: string): Promise<Patient> => {
-    const response = await api.get(`/api/patients/${patientId}`);
-    return response.data;
+  getPatient: async (id: string): Promise<Patient> => {
+    const response = await fetch(`/api/patients/${id}`);
+    
+    if (!response.ok) {
+      throw new Error('Failed to fetch patient');
+    }
+
+    const result = await response.json();
+    return result.patient;
   },
 
-  updatePatient: async (patientId: string, patientData: PatientUpdate): Promise<Patient> => {
-    const response = await api.put(`/api/patients/${patientId}`, patientData);
-    return response.data;
+  updatePatient: async (id: string, patientData: PatientUpdate): Promise<Patient> => {
+    const response = await fetch(`/api/patients/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        name: patientData.name,
+        date_of_birth: patientData.date_of_birth,
+        diagnosis: patientData.diagnosis,
+        prescription: patientData.prescription
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to update patient');
+    }
+
+    const result = await response.json();
+    return result.patient;
   },
 
-  deletePatient: async (patientId: string): Promise<void> => {
-    await api.delete(`/api/patients/${patientId}`);
-  },
+  deletePatient: async (id: string): Promise<void> => {
+    const response = await fetch(`/api/patients/${id}`, {
+      method: 'DELETE'
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to delete patient');
+    }
+  }
 };
 
 // Chat API
