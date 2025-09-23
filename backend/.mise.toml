@@ -1,0 +1,9 @@
+[tools]
+python = "3.11.7"
+
+[settings]
+experimental = true
+
+[env]
+PYTHON_VERSION = "3.11.7"
+MISE_PYTHON_VERSION = "3.11.7"
