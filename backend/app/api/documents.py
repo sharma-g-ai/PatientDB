@@ -13,7 +13,6 @@ from app.models.patient import DocumentProcessingResult, PatientBase
 from app.services.gemini_service import GeminiService
 from app.models.patient import DocumentProcessingResultMulti
 from app.services.rag_service import RAGService
-from app.services.tabular_processor import TabularProcessor
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -25,10 +24,6 @@ def get_gemini_service() -> GeminiService:
 # Dependency to get RAG service
 def get_rag_service() -> RAGService:
     return RAGService()
-
-# Dependency to get TabularProcessor service
-def get_tabular_processor() -> TabularProcessor:
-    return TabularProcessor()
 
 @router.post("/upload", response_model=DocumentProcessingResult)
 async def upload_document(
@@ -186,27 +181,17 @@ async def attach_file_to_chat(
     file: UploadFile = File(...),
     chat_session_id: Optional[str] = None,
     gemini_service: GeminiService = Depends(get_gemini_service),
-    rag_service: RAGService = Depends(get_rag_service),
-    tabular_processor: TabularProcessor = Depends(get_tabular_processor)
+    rag_service: RAGService = Depends(get_rag_service)
 ):
-    """Attach a file to chat context - supports all document types plus tabular data"""
+    """Attach a file to chat context - supports document types (tabular processing removed)"""
     
-    # Extended allowed types for chat attachments
-    document_types = ['image/jpeg', 'image/png', 'image/jpg', 'text/plain', 'application/pdf']
-    tabular_types = [
-        'application/vnd.ms-excel',  # .xls
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',  # .xlsx
-        'text/csv',  # .csv
-        'text/tab-separated-values',  # .tsv
-        'application/json'  # .json
-    ]
+    # Document types only (removed tabular types)
+    allowed_types = ['image/jpeg', 'image/png', 'image/jpg', 'text/plain', 'application/pdf']
     
-    all_allowed_types = document_types + tabular_types
-    
-    if file.content_type not in all_allowed_types:
+    if file.content_type not in allowed_types:
         raise HTTPException(
             status_code=400,
-            detail=f"File type {file.content_type} not supported. Allowed types: {', '.join(all_allowed_types)}"
+            detail=f"File type {file.content_type} not supported. Allowed types: {', '.join(allowed_types)}"
         )
     
     # Validate file size (20MB max for chat attachments)
@@ -225,7 +210,7 @@ async def attach_file_to_chat(
         
         filename = file.filename or "attached_file"
         processed_content = ""
-        attachment_type = ""
+        attachment_type = "document"
         metadata = {
             "filename": filename,
             "content_type": file.content_type,
@@ -234,98 +219,64 @@ async def attach_file_to_chat(
         }
         
         # Process based on file type
-        if tabular_processor.is_tabular_file(file.content_type, filename):
-            # Process tabular data
-            attachment_type = "tabular"
-            tabular_result = await tabular_processor.process_tabular_file(
-                file_content, filename, file.content_type
-            )
-            
+        if file.content_type.startswith('image/'):
+            # For images, extract text content
+            doc_result = await gemini_service.extract_patient_data(file_content, file.content_type)
             processed_content = f"""
-TABULAR DATA ATTACHMENT: {filename}
+            DOCUMENT ATTACHMENT: {filename} (Image)
 
-{tabular_result.get('summary', '')}
+            EXTRACTED CONTENT:
+            {doc_result.get('raw_text', 'No text extracted')}
 
-DATA STRUCTURE:
-- Shape: {tabular_result.get('shape', [0, 0])[0]} rows × {tabular_result.get('shape', [0, 0])[1]} columns
-- Columns: {', '.join(tabular_result.get('columns', []))}
+            STRUCTURED DATA:
+            - Name: {doc_result.get('name', 'N/A')}
+            - Date of Birth: {doc_result.get('date_of_birth', 'N/A')}
+            - Diagnosis: {doc_result.get('diagnosis', 'N/A')}
+            - Prescription: {doc_result.get('prescription', 'N/A')}
 
-KEY INSIGHTS:
-{chr(10).join(tabular_result.get('insights', []))}
-
-CONTEXTUAL INFORMATION:
-{tabular_result.get('contextual_text', '')}
-
-This tabular data is now available for analysis and queries in this chat session.
-"""
-            
+            This document content is now available in the chat context.
+            """
             metadata.update({
-                "tabular_analysis": tabular_result,
-                "data_columns": tabular_result.get('columns', []),
-                "data_shape": tabular_result.get('shape', [0, 0])
+                "extracted_data": doc_result,
+                "confidence_score": doc_result.get('confidence_score', 0.0)
             })
             
-        elif file.content_type in document_types:
-            # Process regular documents (images, PDFs, text)
-            attachment_type = "document"
-            if file.content_type.startswith('image/'):
-                # For images, we'll extract text content
-                doc_result = await gemini_service.extract_patient_data(file_content, file.content_type)
+        elif file.content_type == 'application/pdf':
+            # Process PDF
+            doc_result = await gemini_service.extract_patient_data(file_content, file.content_type)
+            processed_content = f"""
+            DOCUMENT ATTACHMENT: {filename} (PDF)
+
+            EXTRACTED CONTENT:
+            {doc_result.get('raw_text', 'No text extracted')}
+
+            STRUCTURED DATA:
+            - Name: {doc_result.get('name', 'N/A')}
+            - Date of Birth: {doc_result.get('date_of_birth', 'N/A')}
+            - Diagnosis: {doc_result.get('diagnosis', 'N/A')}
+            - Prescription: {doc_result.get('prescription', 'N/A')}
+
+            This document content is now available in the chat context.
+            """
+            metadata.update({
+                "extracted_data": doc_result,
+                "confidence_score": doc_result.get('confidence_score', 0.0)
+            })
+            
+        elif file.content_type == 'text/plain':
+            # Process text file
+            try:
+                text_content = file_content.decode('utf-8', errors='ignore')
                 processed_content = f"""
-DOCUMENT ATTACHMENT: {filename} (Image)
+                TEXT ATTACHMENT: {filename}
 
-EXTRACTED CONTENT:
-{doc_result.get('raw_text', 'No text extracted')}
+                CONTENT:
+                {text_content[:2000]}{'...' if len(text_content) > 2000 else ''}
 
-STRUCTURED DATA:
-- Name: {doc_result.get('name', 'N/A')}
-- Date of Birth: {doc_result.get('date_of_birth', 'N/A')}
-- Diagnosis: {doc_result.get('diagnosis', 'N/A')}
-- Prescription: {doc_result.get('prescription', 'N/A')}
-
-This document content is now available in the chat context.
-"""
-                metadata.update({
-                    "extracted_data": doc_result,
-                    "confidence_score": doc_result.get('confidence_score', 0.0)
-                })
-                
-            elif file.content_type == 'application/pdf':
-                # Process PDF
-                doc_result = await gemini_service.extract_patient_data(file_content, file.content_type)
-                processed_content = f"""
-DOCUMENT ATTACHMENT: {filename} (PDF)
-
-EXTRACTED CONTENT:
-{doc_result.get('raw_text', 'No text extracted')}
-
-STRUCTURED DATA:
-- Name: {doc_result.get('name', 'N/A')}
-- Date of Birth: {doc_result.get('date_of_birth', 'N/A')}
-- Diagnosis: {doc_result.get('diagnosis', 'N/A')}
-- Prescription: {doc_result.get('prescription', 'N/A')}
-
-This document content is now available in the chat context.
-"""
-                metadata.update({
-                    "extracted_data": doc_result,
-                    "confidence_score": doc_result.get('confidence_score', 0.0)
-                })
-                
-            elif file.content_type == 'text/plain':
-                # Process text file
-                try:
-                    text_content = file_content.decode('utf-8', errors='ignore')
-                    processed_content = f"""
-TEXT ATTACHMENT: {filename}
-
-CONTENT:
-{text_content[:2000]}{'...' if len(text_content) > 2000 else ''}
-
-This text content is now available in the chat context.
-"""
-                except:
-                    processed_content = f"TEXT ATTACHMENT: {filename} (Could not decode text content)"
+                This text content is now available in the chat context.
+                """
+            except:
+                processed_content = f"TEXT ATTACHMENT: {filename} (Could not decode text content)"
         
         # Add to chat context via RAG service
         try:

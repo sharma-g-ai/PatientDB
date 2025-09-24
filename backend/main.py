@@ -34,6 +34,8 @@ def startup():
     # Skip table creation - using Supabase REST API
     print("🚀 Starting PatientDB API...")
     print("✅ Using Supabase for data storage (tables already exist)")
+    print("📄 Document processing with Google Gemini")
+    print("💬 Chat functionality with simplified context storage")
     
     # Optional: Test Supabase connection here if needed
     supabase_url = os.getenv("SUPABASE_URL")
@@ -83,14 +85,14 @@ async def chat_interface():
 @app.get("/")
 async def root():
     return {
-        "message": "Patient Document Management API - Enhanced with File Attachments",
+        "message": "Patient Document Management API - Optimized for Railway Deployment",
         "chat_interface": "/chat",
         "api_docs": "/docs",
         "features": [
             "📎 File attachment in chat",
-            "📊 Tabular data processing (Excel, CSV)",
             "🏥 Medical document analysis", 
-            "💬 Context-aware conversations"
+            "💬 Context-aware conversations",
+            "⚡ Optimized for fast deployment"
         ],
         "endpoints": {
             "attach_files": "POST /api/documents/attach-to-chat",

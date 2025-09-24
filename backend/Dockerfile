@@ -18,7 +18,7 @@ COPY main.py .
 COPY app/ ./app/
 
 # Create directories
-RUN mkdir -p uploads chroma_db
+RUN mkdir -p uploads
 
 # Create non-root user
 RUN adduser --disabled-password --gecos '' appuser

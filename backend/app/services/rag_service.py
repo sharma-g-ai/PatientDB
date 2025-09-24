@@ -1,105 +1,109 @@
 import os
-import chromadb
-import google.generativeai as genai
-from typing import List, Dict, Any, Optional
 import logging
+from typing import List, Dict, Any, Optional
 
 logger = logging.getLogger(__name__)
 
 class RAGService:
-    def __init__(self):
-        self.persist_dir = os.getenv("CHROMA_PERSIST_DIR", "./chroma_db")
-        self.client = chromadb.PersistentClient(path=self.persist_dir)
-        
-        # Main patient collection
-        self.collection = self.client.get_or_create_collection(
-            name="patient_data",
-            metadata={"hnsw:space": "cosine"}
-        )
-        
-        # Staging collection for latest uploads
-        self.staging_collection = self.client.get_or_create_collection(
-            name="patient_data_staging",
-            metadata={"hnsw:space": "cosine"}
-        )
-        
-        # Initialize Gemini for embeddings
-        genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
-        self.embedding_model = "models/embedding-001"
-        
-        logger.info("RAG Service initialized with Google embeddings (no PyTorch needed)")
+    """Minimal RAG service without ChromaDB/sentence-transformers dependencies"""
     
-    def _get_embeddings(self, texts: List[str]) -> List[List[float]]:
-        """Get embeddings using Google Gemini API"""
-        try:
-            embeddings = []
-            for text in texts:
-                result = genai.embed_content(
-                    model=self.embedding_model,
-                    content=text,
-                    task_type="retrieval_document"
-                )
-                embeddings.append(result['embedding'])
-            return embeddings
-        except Exception as e:
-            logger.error(f"Error getting embeddings: {e}")
-            # Fallback: return dummy embeddings
-            return [[0.0] * 768 for _ in texts]
+    def __init__(self):
+        # Simple in-memory storage for chat attachments
+        self.chat_attachments = {}
+        self.staging_documents = {}
+        logger.info("RAG Service initialized in minimal mode (no vector database)")
     
     async def add_document(self, content: str, metadata: Dict[str, Any]) -> str:
-        """Add document to vector store using Google embeddings"""
+        """Add document to simple storage"""
         try:
-            # Split content into chunks
-            chunks = self._chunk_text(content)
-            embeddings = self._get_embeddings(chunks)
-            
-            # Add to ChromaDB
-            ids = [f"doc_{metadata.get('filename', 'unknown')}_{i}" for i in range(len(chunks))]
-            
-            self.staging_collection.add(
-                embeddings=embeddings,
-                documents=chunks,
-                metadatas=[metadata] * len(chunks),
-                ids=ids
-            )
-            
-            return f"Added {len(chunks)} chunks to vector store"
-            
+            doc_id = metadata.get('filename', 'unknown')
+            self.staging_documents[doc_id] = {
+                'content': content,
+                'metadata': metadata
+            }
+            return f"Added document {doc_id} to simple storage"
         except Exception as e:
             logger.error(f"Error adding document: {e}")
             return f"Error: {str(e)}"
     
-    def _chunk_text(self, text: str, chunk_size: int = 1000, overlap: int = 200) -> List[str]:
-        """Simple text chunking"""
-        chunks = []
-        start = 0
-        while start < len(text):
-            end = start + chunk_size
-            chunk = text[start:end]
-            chunks.append(chunk)
-            start = end - overlap
-        return chunks
+    async def add_staging_documents(self, upload_batch_id: str, text: str, metadata: Dict[str, Any]) -> str:
+        """Add staging documents to simple storage"""
+        try:
+            self.staging_documents[upload_batch_id] = {
+                'content': text,
+                'metadata': metadata
+            }
+            return f"Added staging documents for batch {upload_batch_id}"
+        except Exception as e:
+            logger.error(f"Error adding staging documents: {e}")
+            return f"Error: {str(e)}"
     
     async def search_similar(self, query: str, n_results: int = 5) -> List[Dict[str, Any]]:
-        """Search for similar documents"""
+        """Simple text search without vector similarity"""
         try:
-            # Get query embedding
-            query_embedding = self._get_embeddings([query])[0]
-            
-            # Search in both collections
             results = []
-            for collection in [self.collection, self.staging_collection]:
-                try:
-                    search_results = collection.query(
-                        query_embeddings=[query_embedding],
-                        n_results=n_results
-                    )
-                    results.extend(search_results.get('documents', [[]])[0])
-                except:
-                    continue
+            query_lower = query.lower()
+            
+            # Simple keyword matching
+            for doc_id, doc_data in self.staging_documents.items():
+                content = doc_data.get('content', '').lower()
+                if any(word in content for word in query_lower.split()):
+                    results.append({
+                        'content': doc_data.get('content', ''),
+                        'metadata': doc_data.get('metadata', {}),
+                        'score': 0.5  # Simple placeholder score
+                    })
             
             return results[:n_results]
-            
         except Exception as e:
             logger.error(f"Error searching: {e}")
             return []
+    
+    def similarity_search(self, query: str, k: int = 5) -> List[Dict[str, Any]]:
+        """Synchronous version of search"""
+        try:
+            results = []
+            query_lower = query.lower()
+            
+            for doc_id, doc_data in self.staging_documents.items():
+                content = doc_data.get('content', '').lower()
+                if any(word in content for word in query_lower.split()):
+                    results.append({
+                        'content': doc_data.get('content', ''),
+                        'metadata': doc_data.get('metadata', {}),
+                        'relevance_score': 0.5
+                    })
+            
+            return results[:k]
+        except Exception as e:
+            logger.error(f"Error in similarity search: {e}")
+            return []
+    
+    async def add_chat_attachment(self, chat_session_id: str, content: str, metadata: Dict[str, Any]):
+        """Add attachment to chat session"""
+        if chat_session_id not in self.chat_attachments:
+            self.chat_attachments[chat_session_id] = []
+        
+        self.chat_attachments[chat_session_id].append({
+            'content': content,
+            'metadata': metadata,
+            'timestamp': __import__('time').time()
+        })
+    
+    async def get_chat_attachments(self, chat_session_id: str) -> List[Dict[str, Any]]:
+        """Get attachments for a chat session"""
+        return self.chat_attachments.get(chat_session_id, [])
+    
+    def get_chat_context(self, chat_session_id: str) -> str:
+        """Get chat context from attachments"""
+        attachments = self.chat_attachments.get(chat_session_id, [])
+        if not attachments:
+            return ""
+        
+        context_parts = []
+        for attachment in attachments:
+            content = attachment.get('content', '')
+            if content:
+                context_parts.append(content)
+        
+        return "\n\n".join(context_parts)
