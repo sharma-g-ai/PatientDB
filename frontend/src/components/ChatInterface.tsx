@@ -1,6 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { chatApi } from '../services/api';
-import { ChatResponse } from '../types';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 
 // Markdown components (will work when react-markdown is installed, fallback to div if not)
 let ReactMarkdown: any;
@@ -66,16 +64,8 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ className = '' }) => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  useEffect(() => {
-    scrollToBottom();
-    // Only initialize chat session if we don't have one already
-    if (!sessionId) {
-      initializeChatSession();
-    }
-  }, [messages]); // Remove sessionId from dependencies to prevent re-initialization
-
-  // Initialize chat session only once
-  const initializeChatSession = async () => {
+  // Wrap initializeChatSession in useCallback to stabilize its reference
+  const initializeChatSession = useCallback(async () => {
     // Check if we already have a session in localStorage
     const existingSessionId = localStorage.getItem('chat_session_id');
     
@@ -100,7 +90,13 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ className = '' }) => {
     } catch (error) {
       console.error('Failed to initialize chat session:', error);
     }
-  };
+  }, []); // Remove sessionId from dependencies to prevent re-initialization
+
+  useEffect(() => {
+    scrollToBottom();
+    // Only initialize chat session if we don't have one already
+    initializeChatSession();
+  }, [messages, initializeChatSession]); // Add initializeChatSession to dependencies
 
   // File attachment handlers
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
