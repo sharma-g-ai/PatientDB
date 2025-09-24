@@ -19,10 +19,11 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# CORS middleware
+# CORS middleware - Include Vercel deployment URL
+allowed_origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,https://patient-db-frontend.vercel.app").split(",")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=os.getenv("ALLOWED_ORIGINS", "http://localhost:3000").split(","),
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -103,7 +104,11 @@ async def root():
 
 @app.get("/health")
 async def health_check():
-    return {"status": "healthy"}
+    return {
+        "status": "healthy",
+        "service": "PatientDB API",
+        "version": "1.0.0"
+    }
 
 if __name__ == "__main__":
     import uvicorn

@@ -1,0 +1,26 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "build"
+      }
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "/index.html"
+    }
+  ],
+  "env": {
+    "REACT_APP_API_BASE_URL": "@react_app_api_base_url"
+  },
+  "build": {
+    "env": {
+      "REACT_APP_API_BASE_URL": "https://patientdb-production.up.railway.app"
+    }
+  }
+}

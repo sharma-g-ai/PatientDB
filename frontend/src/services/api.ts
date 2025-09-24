@@ -34,10 +34,27 @@ class ApiService {
 
     try {
       const response = await fetch(url, mergedOptions);
+      
+      // Log response status for debugging
+      if (!response.ok) {
+        console.error(`API Error: ${response.status} for ${url}`);
+      }
+      
       return response;
     } catch (error) {
       console.error(`API request failed for ${url}:`, error);
       throw error;
+    }
+  }
+
+  // Health check to verify backend is accessible
+  async healthCheck(): Promise<boolean> {
+    try {
+      const response = await this.makeRequest('health');
+      return response.ok;
+    } catch (error) {
+      console.error('Backend health check failed:', error);
+      return false;
     }
   }
 
