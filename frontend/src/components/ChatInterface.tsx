@@ -64,7 +64,23 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ className = '' }) => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  // Wrap initializeChatSession in useCallback to stabilize its reference
+  // Move fetchAttachedFiles before initializeChatSession and wrap in useCallback
+  const fetchAttachedFiles = useCallback(async (sessionIdParam?: string) => {
+    const targetSessionId = sessionIdParam || sessionId;
+    if (!targetSessionId) return;
+
+    try {
+      const response = await fetch(`/api/chat/session/${targetSessionId}/files`);
+      if (response.ok) {
+        const data = await response.json();
+        setAttachedFiles(data.files);
+      }
+    } catch (error) {
+      console.error('Error fetching attached files:', error);
+    }
+  }, [sessionId]);
+
+  // Wrap initializeChatSession in useCallback with fetchAttachedFiles dependency
   const initializeChatSession = useCallback(async () => {
     // Check if we already have a session in localStorage
     const existingSessionId = localStorage.getItem('chat_session_id');
@@ -90,7 +106,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ className = '' }) => {
     } catch (error) {
       console.error('Failed to initialize chat session:', error);
     }
-  }, []); // Remove sessionId from dependencies to prevent re-initialization
+  }, [fetchAttachedFiles]); // Add fetchAttachedFiles to dependencies
 
   useEffect(() => {
     scrollToBottom();
@@ -213,21 +229,6 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ className = '' }) => {
     // Clear file input
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
-    }
-  };
-
-  const fetchAttachedFiles = async (sessionIdParam?: string) => {
-    const targetSessionId = sessionIdParam || sessionId;
-    if (!targetSessionId) return;
-
-    try {
-      const response = await fetch(`/api/chat/session/${targetSessionId}/files`);
-      if (response.ok) {
-        const data = await response.json();
-        setAttachedFiles(data.files);
-      }
-    } catch (error) {
-      console.error('Error fetching attached files:', error);
     }
   };
 
