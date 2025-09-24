@@ -9,4 +9,3 @@ restartPolicyMaxRetries = 3
 
 [env]
 PORT = "8000"
-PYTHONPATH = "/app"

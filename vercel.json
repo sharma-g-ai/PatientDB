@@ -18,6 +18,6 @@
   "buildCommand": "cd frontend && npm ci && npm run build",
   "outputDirectory": "frontend/build",
   "env": {
-    "REACT_APP_API_BASE_URL": "https://patientdb-production.up.railway.app"
+    "REACT_APP_API_BASE_URL": ""
   }
 }
