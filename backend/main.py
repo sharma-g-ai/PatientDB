@@ -19,10 +19,11 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# CORS middleware
+# CORS middleware - Include Vercel deployment URL
+allowed_origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,https://patient-db-frontend.vercel.app").split(",")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=os.getenv("ALLOWED_ORIGINS", "http://localhost:3000").split(","),
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -34,6 +35,8 @@ def startup():
     # Skip table creation - using Supabase REST API
     print("🚀 Starting PatientDB API...")
     print("✅ Using Supabase for data storage (tables already exist)")
+    print("📄 Document processing with Google Gemini")
+    print("💬 Chat functionality with simplified context storage")
     
     # Optional: Test Supabase connection here if needed
     supabase_url = os.getenv("SUPABASE_URL")
@@ -83,14 +86,14 @@ async def chat_interface():
 @app.get("/")
 async def root():
     return {
-        "message": "Patient Document Management API - Enhanced with File Attachments",
+        "message": "Patient Document Management API - Optimized for Railway Deployment",
         "chat_interface": "/chat",
         "api_docs": "/docs",
         "features": [
             "📎 File attachment in chat",
-            "📊 Tabular data processing (Excel, CSV)",
             "🏥 Medical document analysis", 
-            "💬 Context-aware conversations"
+            "💬 Context-aware conversations",
+            "⚡ Optimized for fast deployment"
         ],
         "endpoints": {
             "attach_files": "POST /api/documents/attach-to-chat",
@@ -101,7 +104,15 @@ async def root():
 
 @app.get("/health")
 async def health_check():
-    return {"status": "healthy"}
+    port = os.getenv("PORT", "8000")
+    print(f"Health check called - Running on port: {port}")
+    return {
+        "status": "healthy",
+        "service": "PatientDB API",
+        "version": "1.0.0",
+        "port": port,
+        "host": "0.0.0.0"
+    }
 
 if __name__ == "__main__":
     import uvicorn

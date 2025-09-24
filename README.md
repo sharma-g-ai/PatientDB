@@ -4,12 +4,11 @@ A comprehensive healthcare document management system that uses AI to extract an
 
 ## 🏗️ Architecture
 
-The system consists of four main components:
+The system consists of three main components:
 
 1. **React Frontend**: Modern web interface for document upload and patient management
 2. **FastAPI Backend**: Python API server with document processing and chat endpoints
-3. **SQLite Database**: Local database for patient data storage (zero setup required!)
-4. **RAG System**: Vector-based retrieval system for intelligent chat queries
+3. **SQLite/PostgreSQL Database**: Data storage with zero setup (SQLite) or cloud database (PostgreSQL)
 
 ## 🚀 Features
 
@@ -26,10 +25,10 @@ The system consists of four main components:
 - Audit trail with creation/update timestamps
 
 ### Intelligent Chat
-- RAG-powered chat interface for querying patient data
-- Natural language questions about patient records
-- Source attribution and confidence scoring
-- Real-time responses with relevant patient information
+- Chat interface for querying with document attachments
+- Natural language questions about uploaded documents
+- Real-time responses with document context
+- File attachment support for contextual conversations
 
 ## 🛠️ Tech Stack
 
@@ -42,13 +41,12 @@ The system consists of four main components:
 ### Backend
 - **FastAPI** for API development
 - **Google Gemini 2.5-pro** for document processing
-- **ChromaDB** for vector storage
-- **Sentence Transformers** for embeddings
+- **Simple Context Store** for chat attachments
 - **Supabase** Python client
 
 ### Database & Infrastructure
 - **SQLite** for local data storage (zero setup!)
-- **ChromaDB** for vector embeddings
+- **PostgreSQL** for production (Supabase)
 - **Google AI Studio** for Gemini API
 
 ## 📁 Project Structure

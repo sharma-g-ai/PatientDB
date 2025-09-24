@@ -1,5 +1,5 @@
 import google.generativeai as genai
-from google import genai as google_client
+# from google import genai as google_client
 import os
 from typing import Dict, Any, Optional, List
 import json
@@ -32,7 +32,7 @@ class GeminiService:
         genai.configure(api_key=api_key)  # type: ignore[attr-defined]
         self.model = genai.GenerativeModel('gemini-2.0-flash-exp')  # type: ignore[attr-defined]
         # Use the google.genai client for file uploads (like in main.py)
-        self.client = google_client.Client(api_key=api_key)
+        # self.client = genai.Client(api_key=api_key)
     
     async def extract_patient_data(self, file_content: bytes, file_type: str) -> Dict[str, Any]:
         """Extract patient data from uploaded document"""
@@ -136,21 +136,13 @@ class GeminiService:
                         f.write(file_content)
                     
                     # Upload to Gemini - use 'file' parameter instead of 'path'
-                    uploaded_file = self.client.files.upload(
+                    uploaded_file = genai.upload_file(
                         file=pdf_path,
                         config={"mime_type": "application/pdf"}
                     )
                     
                     # Generate content using uploaded file with proper message structure
-                    resp_obj = self.client.models.generate_content(
-                        model="gemini-2.0-flash-exp",
-                        contents=[
-                            {"role": "user", "parts": [
-                                {"file_data": {"mime_type": uploaded_file.mime_type, "file_uri": uploaded_file.uri}},
-                                {"text": prompt}
-                            ]}
-                        ]
-                    )
+                    resp_obj = self.model.generate_content([uploaded_file, prompt])
                     response = resp_obj.text or ""
                     
                 finally:
@@ -242,9 +234,9 @@ class GeminiService:
                 # Upload to Gemini
                 print(f"🔄 Uploading {file_name} to Gemini...")
                 try:
-                    uploaded_file = self.client.files.upload(
-                        file=file_path, 
-                        config={"mime_type": mime_type}
+                    uploaded_file = genai.upload_file(
+                        path=file_path, 
+                        mime_type=mime_type
                     )
                     uploaded_files.append(uploaded_file)
                     print(f"✅ Successfully uploaded {file_name}")
@@ -354,21 +346,11 @@ class GeminiService:
             # Generate content using all uploaded files with proper message structure
             user_parts = []
             for uploaded_file in uploaded_files:
-                user_parts.append({
-                    "file_data": {
-                        "mime_type": uploaded_file.mime_type, 
-                        "file_uri": uploaded_file.uri
-                    }
-                })
-            user_parts.append({"text": prompt})
-            
-            resp_obj = self.client.models.generate_content(
-                model="gemini-2.0-flash-exp",
-                contents=[
-                    {"role": "user", "parts": user_parts}
-                ]
-            )
-            
+                user_parts.append(uploaded_file)
+            user_parts.append(prompt)
+
+            resp_obj = self.model.generate_content(user_parts)
+
             response_text = resp_obj.text or ""
             print("=== 🤖 FULL LLM RESPONSE ===")
             print(response_text)
@@ -877,9 +859,9 @@ class GeminiService:
                 f.write(file_content)
             
             # Upload to Gemini
-            uploaded_file = self.client.files.upload(
-                file=pdf_path,
-                config={"mime_type": "application/pdf"}
+            uploaded_file = genai.upload_file(
+                path=pdf_path,
+                mime_type="application/pdf"
             )
             
             prompt = f"""
@@ -890,16 +872,8 @@ class GeminiService:
             """
             
             # Generate content using uploaded file
-            resp_obj = self.client.models.generate_content(
-                model="gemini-2.0-flash-exp",
-                contents=[
-                    {"role": "user", "parts": [
-                        {"file_data": {"mime_type": uploaded_file.mime_type, "file_uri": uploaded_file.uri}},
-                        {"text": prompt}
-                    ]}
-                ]
-            )
-            
+            resp_obj = self.model.generate_content([uploaded_file, prompt])
+
             response = resp_obj.text or ""
             
             # Clean up
@@ -1078,9 +1052,9 @@ class GeminiService:
                 f.write(file_content)
             
             # Upload to Gemini
-            uploaded_file = self.client.files.upload(
-                file=pdf_path,
-                config={"mime_type": "application/pdf"}
+            uploaded_file = genai.upload_file(
+                path=pdf_path,
+                mime_type="application/pdf"
             )
             
             prompt = f"""
@@ -1090,16 +1064,10 @@ class GeminiService:
             """
             
             # Generate content using uploaded file
-            resp_obj = self.client.models.generate_content(
-                model="gemini-2.0-flash-exp",
-                contents=[
-                    {"role": "user", "parts": [
-                        {"file_data": {"mime_type": uploaded_file.mime_type, "file_uri": uploaded_file.uri}},
-                        {"text": prompt}
-                    ]}
-                ]
+            resp_obj = self.model.generate_content(
+                [uploaded_file, prompt]
             )
-            
+
             response = resp_obj.text or ""
             
             # Clean up
@@ -1147,9 +1115,9 @@ class GeminiService:
                 f.write(file_content)
             
             # Upload to Gemini
-            uploaded_file = self.client.files.upload(
-                file=pdf_path,
-                config={"mime_type": "application/pdf"}
+            uploaded_file = genai.upload_file(
+                path=pdf_path,
+                mime_type="application/pdf"
             )
             
             prompt = f"""
@@ -1159,16 +1127,10 @@ class GeminiService:
             """
             
             # Generate content using uploaded file
-            resp_obj = self.client.models.generate_content(
-                model="gemini-2.0-flash-exp",
-                contents=[
-                    {"role": "user", "parts": [
-                        {"file_data": {"mime_type": uploaded_file.mime_type, "file_uri": uploaded_file.uri}},
-                        {"text": prompt}
-                    ]}
-                ]
+            resp_obj = self.model.generate_content(
+                [uploaded_file, prompt]
             )
-            
+
             response = resp_obj.text or ""
             
             # Clean up
